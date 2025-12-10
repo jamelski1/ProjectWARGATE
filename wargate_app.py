@@ -578,10 +578,36 @@ GOVERNMENT_CSS = """
    GLOBAL RESETS & BASE STYLES
    ================================================================= */
 
-/* Remove Streamlit branding and default styles */
+/* Remove Streamlit branding - but keep mobile navigation accessible */
 #MainMenu {visibility: hidden;}
 footer {visibility: hidden;}
-header {visibility: hidden;}
+
+/* Hide header content but keep the container for mobile sidebar toggle */
+header[data-testid="stHeader"] {
+    background: transparent !important;
+}
+
+/* Hide the decorative toolbar but keep collapse button */
+header[data-testid="stHeader"] .stToolbar {
+    display: none;
+}
+
+/* Ensure mobile sidebar toggle (hamburger) is visible and clickable */
+button[data-testid="stSidebarNavToggle"],
+button[data-testid="baseButton-headerNoPadding"],
+[data-testid="collapsedControl"] {
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    z-index: 999999 !important;
+}
+
+/* Style the sidebar collapse/expand button */
+button[data-testid="baseButton-headerNoPadding"] {
+    background-color: var(--primary-purple) !important;
+    color: white !important;
+    border-radius: 4px;
+}
 
 .stApp {
     background-color: var(--bg-primary);
