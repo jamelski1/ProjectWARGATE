@@ -38,11 +38,70 @@ class WARGATEConfig(BaseModel):
 # STUB TOOLS / RAG RETRIEVERS
 # =============================================================================
 # These are placeholder implementations. Replace with real RAG retrievers.
+#
+# To integrate real retrievers, replace the stub functions below with your
+# actual retrieval logic. Example with LangChain + ChromaDB:
+#
+#   from langchain_community.vectorstores import Chroma
+#   from langchain_openai import OpenAIEmbeddings
+#
+#   doctrine_vectorstore = Chroma(
+#       persist_directory="./doctrine_db",
+#       embedding_function=OpenAIEmbeddings()
+#   )
+#
+#   def doctrine_query(query: str) -> str:
+#       docs = doctrine_vectorstore.similarity_search(query, k=5)
+#       return "\n\n".join([doc.page_content for doc in docs])
+#
+# =============================================================================
+
+
+def create_rag_tool(
+    name: str,
+    description: str,
+    retriever_func: Callable[[str], str],
+) -> Tool:
+    """
+    Factory function to create a RAG retriever tool.
+
+    Use this to easily swap placeholder retrievers with real implementations.
+
+    Args:
+        name: Tool name (e.g., "doctrine_retriever")
+        description: Description for the LLM to understand when to use the tool
+        retriever_func: Function that takes a query string and returns retrieved content
+
+    Returns:
+        A LangChain Tool configured for the retriever
+
+    Example:
+        >>> def my_doctrine_retriever(query: str) -> str:
+        ...     docs = vectorstore.similarity_search(query)
+        ...     return "\\n".join([d.page_content for d in docs])
+        >>> doctrine_tool = create_rag_tool(
+        ...     name="doctrine_retriever",
+        ...     description="Retrieves joint doctrine and military publications",
+        ...     retriever_func=my_doctrine_retriever
+        ... )
+    """
+    return Tool(
+        name=name,
+        func=retriever_func,
+        description=description,
+    )
+
 
 def doctrine_query(query: str) -> str:
     """
     Retrieves relevant joint doctrine, LOAC, AI policy, and military regulations.
+
     TODO: Replace with real RAG retriever connected to doctrine knowledge base.
+
+    Example replacement with ChromaDB:
+        doctrine_vectorstore = Chroma(persist_directory="./doctrine_db", ...)
+        docs = doctrine_vectorstore.similarity_search(query, k=5)
+        return "\\n\\n".join([doc.page_content for doc in docs])
     """
     return f"[DOCTRINE_RETRIEVAL] Query: '{query}'\n\nPlaceholder response - Connect to doctrine vector store for:\n- Joint Publications (JP 3-0, JP 5-0, etc.)\n- LOAC/IHL references\n- AI/Autonomy policy (DoDD 3000.09)\n- ROE frameworks"
 
@@ -51,6 +110,7 @@ def geopolitics_query(query: str) -> str:
     """
     Retrieves current and historical geopolitical context, regional dynamics,
     and international relations information.
+
     TODO: Replace with real RAG retriever connected to geopolitical knowledge base.
     """
     return f"[GEOPOLITICS_RETRIEVAL] Query: '{query}'\n\nPlaceholder response - Connect to geopolitics vector store for:\n- Regional political dynamics\n- Alliance structures\n- Historical precedents\n- Current tensions and flashpoints"
@@ -59,6 +119,7 @@ def geopolitics_query(query: str) -> str:
 def logistics_query(query: str) -> str:
     """
     Retrieves sustainment, supply chain, infrastructure, and logistics data.
+
     TODO: Replace with real RAG retriever connected to logistics knowledge base.
     """
     return f"[LOGISTICS_RETRIEVAL] Query: '{query}'\n\nPlaceholder response - Connect to logistics vector store for:\n- Supply route analysis\n- Stockage levels\n- POL distribution networks\n- Maintenance and repair capabilities"
@@ -68,6 +129,7 @@ def cyberintel_query(query: str) -> str:
     """
     Retrieves cyber threat intelligence, AI/cyber incidents, and information
     environment assessments.
+
     TODO: Replace with real RAG retriever connected to cyber intel knowledge base.
     """
     return f"[CYBERINTEL_RETRIEVAL] Query: '{query}'\n\nPlaceholder response - Connect to cyber intel vector store for:\n- Known threat actor TTPs\n- Recent cyber incidents\n- Infrastructure vulnerabilities\n- AI-enabled threat capabilities"
@@ -76,6 +138,7 @@ def cyberintel_query(query: str) -> str:
 def terrain_query(query: str) -> str:
     """
     Retrieves terrain analysis, geographic data, and environmental factors.
+
     TODO: Replace with real RAG retriever connected to terrain/geo knowledge base.
     """
     return f"[TERRAIN_RETRIEVAL] Query: '{query}'\n\nPlaceholder response - Connect to terrain vector store for:\n- OAKOC analysis\n- Key terrain features\n- Weather impacts\n- Infrastructure and LOCs"
@@ -84,6 +147,7 @@ def terrain_query(query: str) -> str:
 def orbat_query(query: str) -> str:
     """
     Retrieves order of battle information, force structure, and unit capabilities.
+
     TODO: Replace with real RAG retriever connected to ORBAT knowledge base.
     """
     return f"[ORBAT_RETRIEVAL] Query: '{query}'\n\nPlaceholder response - Connect to ORBAT vector store for:\n- Friendly force structure\n- Enemy order of battle\n- Unit capabilities and readiness\n- Equipment and weapons systems"
@@ -585,11 +649,55 @@ ROLE_TOOLS: dict[StaffRole, list[Tool]] = {
 
 
 # =============================================================================
+# TOOL-USE INSTRUCTIONS (Appended to all system prompts)
+# =============================================================================
+
+TOOL_USE_INSTRUCTIONS = """
+
+IMPORTANT - TOOL USAGE:
+You have access to retrieval tools that can provide additional context. USE THEM PROACTIVELY:
+- Call tools when you need doctrinal references, threat data, or domain-specific information
+- Don't guess when you can retrieve - if a tool can help, use it
+- Even if tools return placeholder data, this demonstrates proper tool usage patterns
+- Multiple tool calls per response are allowed and encouraged when relevant
+
+OUTPUT STYLE:
+- Be concise but doctrinally meaningful
+- Structure responses with clear headers and bullet points
+- Focus on actionable insights, not lengthy prose
+- Use military terminology appropriately
+"""
+
+
+# =============================================================================
 # STAFF AGENT FACTORY
 # =============================================================================
 
 class StaffAgent:
-    """Wrapper for a staff role agent with LangChain AgentExecutor."""
+    """
+    Wrapper for a staff role agent with LangChain AgentExecutor.
+
+    Each StaffAgent represents a specific joint staff role (J1-J8, special staff)
+    and is configured with:
+    - A role-specific system prompt defining doctrinal responsibilities
+    - Access to relevant RAG retriever tools
+    - The shared LLM backend (ChatOpenAI)
+
+    The agent uses OpenAI function calling to determine when to invoke tools.
+
+    Attributes:
+        role: The StaffRole enum value for this agent
+        name: String name of the role
+        system_prompt: Full system prompt including role description and tool instructions
+        tools: List of LangChain Tools available to this agent
+        verbose: Whether to print agent reasoning steps
+        executor: The LangChain AgentExecutor that runs the agent
+
+    Example:
+        >>> config = WARGATEConfig(model_name="gpt-4.1")
+        >>> j2_agent = create_staff_agent(StaffRole.J2, config)
+        >>> response = j2_agent.invoke("Assess enemy force disposition")
+    """
 
     def __init__(
         self,
@@ -598,13 +706,24 @@ class StaffAgent:
         tools: list[Tool],
         verbose: bool = True
     ):
+        """
+        Initialize a staff agent.
+
+        Args:
+            role: The StaffRole for this agent
+            llm: Configured ChatOpenAI instance
+            tools: List of tools this agent can use
+            verbose: Whether to print verbose agent output
+        """
         self.role = role
         self.name = role.value
-        self.system_prompt = STAFF_SYSTEM_PROMPTS[role]
+        # Combine role-specific prompt with tool-use instructions
+        self.system_prompt = STAFF_SYSTEM_PROMPTS[role] + TOOL_USE_INSTRUCTIONS
         self.tools = tools
         self.verbose = verbose
 
-        # Create the agent
+        # Create the agent using OpenAI function calling
+        # This is the modern LangChain pattern (equivalent to AgentType.OPENAI_FUNCTIONS)
         prompt = ChatPromptTemplate.from_messages([
             SystemMessage(content=self.system_prompt),
             MessagesPlaceholder(variable_name="chat_history", optional=True),
@@ -612,17 +731,31 @@ class StaffAgent:
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
 
+        # create_openai_functions_agent is the current recommended approach
+        # It creates an agent that uses OpenAI's function calling capability
         agent = create_openai_functions_agent(llm, tools, prompt)
+
+        # AgentExecutor wraps the agent and handles the tool-calling loop
         self.executor = AgentExecutor(
             agent=agent,
             tools=tools,
             verbose=verbose,
             handle_parsing_errors=True,
-            max_iterations=5,
+            max_iterations=5,  # Prevent infinite loops
+            return_intermediate_steps=False,  # Only return final output
         )
 
     def invoke(self, input_text: str, chat_history: list[BaseMessage] | None = None) -> str:
-        """Invoke the agent with input and optional chat history."""
+        """
+        Invoke the agent with input and optional chat history.
+
+        Args:
+            input_text: The query or task for the agent
+            chat_history: Optional list of previous messages for context
+
+        Returns:
+            The agent's response as a string
+        """
         result = self.executor.invoke({
             "input": input_text,
             "chat_history": chat_history or [],
@@ -630,15 +763,33 @@ class StaffAgent:
         return result.get("output", "")
 
     def __repr__(self) -> str:
-        return f"StaffAgent(role={self.role.value})"
+        return f"StaffAgent(role={self.role.value}, tools={[t.name for t in self.tools]})"
 
 
 def create_staff_agent(
     role: StaffRole,
     config: WARGATEConfig,
+    custom_tools: list[Tool] | None = None,
 ) -> StaffAgent:
-    """Factory function to create a staff agent for a given role."""
+    """
+    Factory function to create a staff agent for a given role.
 
+    Args:
+        role: The StaffRole to create an agent for
+        config: WARGATEConfig with model and other settings
+        custom_tools: Optional custom tools to override default role tools
+
+    Returns:
+        Configured StaffAgent instance
+
+    Example:
+        >>> config = WARGATEConfig(model_name="gpt-4.1", temperature=0.5)
+        >>> j3_agent = create_staff_agent(StaffRole.J3, config)
+
+        # With custom tools:
+        >>> my_tools = [create_rag_tool("my_retriever", "...", my_func)]
+        >>> agent = create_staff_agent(StaffRole.J2, config, custom_tools=my_tools)
+    """
     llm = ChatOpenAI(
         model=config.model_name,
         temperature=config.temperature,
@@ -646,7 +797,8 @@ def create_staff_agent(
         api_key=config.api_key or os.getenv("OPENAI_API_KEY"),
     )
 
-    tools = ROLE_TOOLS.get(role, [doctrine_retriever])
+    # Use custom tools if provided, otherwise use default role tools
+    tools = custom_tools if custom_tools is not None else ROLE_TOOLS.get(role, [doctrine_retriever])
 
     return StaffAgent(
         role=role,
@@ -656,9 +808,30 @@ def create_staff_agent(
     )
 
 
-def create_all_staff_agents(config: WARGATEConfig) -> dict[StaffRole, StaffAgent]:
-    """Create all staff agents with the given configuration."""
-    return {role: create_staff_agent(role, config) for role in StaffRole}
+def create_all_staff_agents(
+    config: WARGATEConfig,
+    custom_tool_map: dict[StaffRole, list[Tool]] | None = None,
+) -> dict[StaffRole, StaffAgent]:
+    """
+    Create all staff agents with the given configuration.
+
+    Args:
+        config: WARGATEConfig with model and other settings
+        custom_tool_map: Optional dict mapping roles to custom tool lists
+
+    Returns:
+        Dictionary mapping StaffRole to StaffAgent instances
+
+    Example:
+        >>> config = WARGATEConfig(model_name="gpt-4.1")
+        >>> staff = create_all_staff_agents(config)
+        >>> j2_response = staff[StaffRole.J2].invoke("Assess the threat")
+    """
+    agents = {}
+    for role in StaffRole:
+        custom_tools = custom_tool_map.get(role) if custom_tool_map else None
+        agents[role] = create_staff_agent(role, config, custom_tools)
+    return agents
 
 
 # =============================================================================
