@@ -11,6 +11,7 @@ WARGATE implements a complete joint staff planning cell with 15 specialized AI a
 ## Features
 
 - **15 Specialized Staff Agents**: Commander, J1-J8, Cyber/EW, Fires, Engineer, Protection, SJA, and PAO
+- **Military Persona System**: Each agent can be assigned a random US military branch, rank, and name with branch-specific cultural perspectives
 - **Structured Planning Flow**: J2 Intel → J5/J3 COA Dev → Staff Reviews → SJA Review → Commander Synthesis
 - **Red Team Integration**: J2 Intelligence agent challenges assumptions and war-games enemy responses
 - **RAG-Ready Architecture**: Stub tools ready for doctrine, geopolitics, logistics, and cyber intel retrievers
@@ -59,6 +60,9 @@ python wargate.py --scenario-file scenario.txt
 # Customize model and temperature
 python wargate.py -s "Scenario..." --model gpt-4.1 --temperature 0.5
 
+# Enable military personas (assigns branch/rank/name to each agent)
+python wargate.py -s "Scenario..." --persona-seed 42
+
 # Save output to file
 python wargate.py -s "Scenario..." --output plan.txt
 
@@ -68,6 +72,58 @@ python wargate.py -s "Scenario..." --quiet
 # Use legacy orchestrator
 python wargate.py -s "Scenario..." --legacy
 ```
+
+## Military Personas
+
+Each staff agent can be assigned a random US military service branch, strategic rank (O-5 to O-10), and name. This adds branch-specific cultural perspectives to their responses.
+
+### Using Personas
+
+```python
+from wargate import run_joint_staff_planning
+
+# Enable personas with a seed for reproducibility
+result = run_joint_staff_planning(
+    scenario_text=scenario,
+    model_name="gpt-4.1",
+    persona_seed=42,  # Same seed = same personas each time
+)
+```
+
+### Generating Individual Personas
+
+```python
+from wargate import generate_random_branch_and_rank, StaffRole
+
+# Generate a persona for a specific role
+persona = generate_random_branch_and_rank("j5_plans", seed=42)
+print(persona.full_designation)  # "COL (US Army) Michael Anderson"
+
+# Access persona details
+print(f"Branch: {persona.branch.value}")      # "US Army"
+print(f"Rank: {persona.rank_title}")          # "Colonel"
+print(f"Culture: {persona.culture_description}")
+```
+
+### Branch-Specific Perspectives
+
+Each military branch brings distinct cultural perspectives:
+
+| Branch | Emphasis |
+|--------|----------|
+| **US Army** | Ground-centric thinking, combined arms, mission command, terrain/logistics |
+| **US Navy** | Maritime domain, power projection, distributed ops, self-sufficiency |
+| **US Air Force** | Airpower, global reach, precision, ISR, electromagnetic spectrum |
+| **US Marine Corps** | Expeditionary ops, MAGTF, violence of action, austere environments |
+| **US Space Force** | Space domain, PNT dependencies, satellite systems, commercial integration |
+| **US Coast Guard** | Maritime law enforcement, interagency coordination, port security |
+
+### Rank Distribution
+
+Ranks are weighted by role type:
+- **Commander**: O-9 (60%) or O-10 (40%) - Lieutenant General/General equivalent
+- **J-Code Officers**: O-6 (50%), O-7 (35%), O-8 (15%) - Colonel to Major General
+- **Special Staff/OICs**: O-5 (40%), O-6 (50%), O-7 (10%) - Lieutenant Colonel to Brigadier General
 
 ## Planning Flow
 

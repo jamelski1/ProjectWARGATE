@@ -10,8 +10,11 @@ Author: ProjectWARGATE Team
 from __future__ import annotations
 
 import os
+import random
+import hashlib
 from typing import Any, Callable, TypedDict
 from enum import Enum
+from dataclasses import dataclass
 
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, BaseMessage
@@ -32,6 +35,265 @@ class WARGATEConfig(BaseModel):
     max_tokens: int = Field(default=4096, description="Max tokens per response")
     verbose: bool = Field(default=True, description="Enable verbose output")
     api_key: str | None = Field(default=None, description="OpenAI API key (or use env var)")
+    persona_seed: int | None = Field(default=None, description="Seed for reproducible persona generation")
+
+
+# =============================================================================
+# MILITARY BRANCH & RANK ASSIGNMENT
+# =============================================================================
+
+class MilitaryBranch(Enum):
+    """U.S. Military Service Branches."""
+    ARMY = "US Army"
+    NAVY = "US Navy"
+    AIR_FORCE = "US Air Force"
+    MARINE_CORPS = "US Marine Corps"
+    SPACE_FORCE = "US Space Force"
+    COAST_GUARD = "US Coast Guard"
+
+
+# Rank structures by branch (O-5 through O-10)
+# Format: (abbreviation, full_title)
+RANK_STRUCTURES: dict[MilitaryBranch, dict[str, tuple[str, str]]] = {
+    MilitaryBranch.ARMY: {
+        "O-5": ("LTC", "Lieutenant Colonel"),
+        "O-6": ("COL", "Colonel"),
+        "O-7": ("BG", "Brigadier General"),
+        "O-8": ("MG", "Major General"),
+        "O-9": ("LTG", "Lieutenant General"),
+        "O-10": ("GEN", "General"),
+    },
+    MilitaryBranch.NAVY: {
+        "O-5": ("CDR", "Commander"),
+        "O-6": ("CAPT", "Captain"),
+        "O-7": ("RDML", "Rear Admiral (Lower Half)"),
+        "O-8": ("RADM", "Rear Admiral"),
+        "O-9": ("VADM", "Vice Admiral"),
+        "O-10": ("ADM", "Admiral"),
+    },
+    MilitaryBranch.AIR_FORCE: {
+        "O-5": ("Lt Col", "Lieutenant Colonel"),
+        "O-6": ("Col", "Colonel"),
+        "O-7": ("Brig Gen", "Brigadier General"),
+        "O-8": ("Maj Gen", "Major General"),
+        "O-9": ("Lt Gen", "Lieutenant General"),
+        "O-10": ("Gen", "General"),
+    },
+    MilitaryBranch.MARINE_CORPS: {
+        "O-5": ("LtCol", "Lieutenant Colonel"),
+        "O-6": ("Col", "Colonel"),
+        "O-7": ("BGen", "Brigadier General"),
+        "O-8": ("MajGen", "Major General"),
+        "O-9": ("LtGen", "Lieutenant General"),
+        "O-10": ("Gen", "General"),
+    },
+    MilitaryBranch.SPACE_FORCE: {
+        "O-5": ("Lt Col", "Lieutenant Colonel"),
+        "O-6": ("Col", "Colonel"),
+        "O-7": ("Brig Gen", "Brigadier General"),
+        "O-8": ("Maj Gen", "Major General"),
+        "O-9": ("Lt Gen", "Lieutenant General"),
+        "O-10": ("Gen", "General"),
+    },
+    MilitaryBranch.COAST_GUARD: {
+        "O-5": ("CDR", "Commander"),
+        "O-6": ("CAPT", "Captain"),
+        "O-7": ("RDML", "Rear Admiral (Lower Half)"),
+        "O-8": ("RADM", "Rear Admiral"),
+        "O-9": ("VADM", "Vice Admiral"),
+        "O-10": ("ADM", "Admiral"),
+    },
+}
+
+
+# Branch-specific cultural perspectives and characteristics
+BRANCH_CULTURE: dict[MilitaryBranch, str] = {
+    MilitaryBranch.ARMY: """You bring an Army perspective emphasizing:
+- Ground-centric operational thinking with focus on combined arms maneuver
+- Deep appreciation for terrain, logistics sustainment, and personnel tempo
+- Mission command philosophy enabling disciplined initiative at echelon
+- Experience with sustained land campaigns and occupation/stability operations
+- Strong focus on integration of fires, maneuver, and protection at tactical level""",
+
+    MilitaryBranch.NAVY: """You bring a Navy perspective emphasizing:
+- Maritime domain awareness and blue-water operational thinking
+- Understanding of sea lines of communication and power projection from the sea
+- Comfort with distributed operations across vast distances
+- Emphasis on self-sufficiency and extended deployments
+- Integration of surface, subsurface, and aviation assets in carrier-centric operations""",
+
+    MilitaryBranch.AIR_FORCE: """You bring an Air Force perspective emphasizing:
+- Airpower-centric thinking with focus on air superiority as an enabler
+- Strategic perspective on global reach, global power, and rapid response
+- Technical orientation toward precision, ISR, and information dominance
+- Appreciation for the electromagnetic spectrum and space dependencies
+- Experience with command and control of distributed air and space assets""",
+
+    MilitaryBranch.MARINE_CORPS: """You bring a Marine Corps perspective emphasizing:
+- Expeditionary mindset with focus on forcible entry and amphibious operations
+- Integration of ground, air, and logistics under a single commander (MAGTF)
+- Bias for action, speed, and violence of action in offensive operations
+- Comfort operating in austere environments with minimal support
+- Every Marine a rifleman - combined arms proficiency at lowest echelon""",
+
+    MilitaryBranch.SPACE_FORCE: """You bring a Space Force perspective emphasizing:
+- Space domain awareness and protection of critical space-based assets
+- Understanding of space as a warfighting domain, not just support function
+- Focus on positioning, navigation, and timing (PNT) dependencies
+- Appreciation for satellite communications, ISR, and missile warning
+- Integration of commercial and military space capabilities""",
+
+    MilitaryBranch.COAST_GUARD: """You bring a Coast Guard perspective emphasizing:
+- Maritime law enforcement and regulatory expertise
+- Interagency coordination experience with DHS, DOJ, and partner nations
+- Port security, maritime domain awareness, and coastal defense
+- Experience in humanitarian operations, SAR, and disaster response
+- Unique authorities under Title 10 and Title 14 dual-status""",
+}
+
+
+# Rank weights by role type (some roles typically held by higher ranks)
+ROLE_RANK_WEIGHTS: dict[str, dict[str, float]] = {
+    # Commander is typically 3-star or 4-star
+    "commander": {"O-9": 0.6, "O-10": 0.4},
+    # J-codes are typically O-6 or 1-star, occasionally 2-star
+    "j_code": {"O-6": 0.5, "O-7": 0.35, "O-8": 0.15},
+    # Special staff / OICs are typically O-5 or O-6
+    "oic": {"O-5": 0.4, "O-6": 0.5, "O-7": 0.1},
+}
+
+
+# Sample names for persona generation
+SAMPLE_FIRST_NAMES = [
+    "James", "Michael", "Robert", "David", "William", "Richard", "Joseph", "Thomas",
+    "Christopher", "Charles", "Daniel", "Matthew", "Anthony", "Mark", "Steven",
+    "Jennifer", "Linda", "Patricia", "Barbara", "Elizabeth", "Susan", "Jessica",
+    "Sarah", "Karen", "Nancy", "Lisa", "Betty", "Margaret", "Sandra", "Ashley",
+    "Emily", "Michelle", "Amanda", "Kimberly", "Melissa", "Stephanie", "Rebecca",
+]
+
+SAMPLE_LAST_NAMES = [
+    "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+    "Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson",
+    "Thomas", "Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson",
+    "White", "Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker",
+    "Young", "Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores",
+]
+
+
+@dataclass
+class MilitaryPersona:
+    """Represents a military officer's persona for a staff agent."""
+    branch: MilitaryBranch
+    rank_grade: str  # e.g., "O-6"
+    rank_abbrev: str  # e.g., "COL"
+    rank_title: str  # e.g., "Colonel"
+    first_name: str
+    last_name: str
+
+    @property
+    def full_designation(self) -> str:
+        """Return full designation like 'COL (US Army) James Smith'."""
+        return f"{self.rank_abbrev} ({self.branch.value}) {self.first_name} {self.last_name}"
+
+    @property
+    def short_designation(self) -> str:
+        """Return short designation like 'COL Smith'."""
+        return f"{self.rank_abbrev} {self.last_name}"
+
+    @property
+    def culture_description(self) -> str:
+        """Return the branch-specific culture description."""
+        return BRANCH_CULTURE[self.branch]
+
+
+def generate_random_branch_and_rank(
+    role_name: str,
+    seed: int | None = None,
+) -> MilitaryPersona:
+    """
+    Generate a random military branch, rank, and name for a staff role.
+
+    The randomness is reproducible when a seed is provided. The seed is combined
+    with the role_name to ensure different roles get different but consistent
+    assignments when using the same seed.
+
+    Args:
+        role_name: The name of the staff role (e.g., "commander", "j2_intelligence")
+        seed: Optional seed for reproducible randomness. If None, truly random.
+
+    Returns:
+        MilitaryPersona dataclass with branch, rank, and name information.
+
+    Example:
+        >>> persona = generate_random_branch_and_rank("j5_plans", seed=42)
+        >>> print(persona.full_designation)
+        'COL (US Army) Michael Anderson'
+    """
+    # Create deterministic seed from role_name and optional seed
+    if seed is not None:
+        # Combine seed with role name for unique but reproducible per-role values
+        combined = f"{seed}:{role_name}"
+        role_seed = int(hashlib.md5(combined.encode()).hexdigest()[:8], 16)
+        rng = random.Random(role_seed)
+    else:
+        rng = random.Random()
+
+    # Determine role type for rank weighting
+    role_lower = role_name.lower()
+    if "commander" in role_lower:
+        role_type = "commander"
+    elif role_lower.startswith("j") and any(c.isdigit() for c in role_lower):
+        role_type = "j_code"
+    else:
+        role_type = "oic"
+
+    # Select rank based on weights
+    rank_weights = ROLE_RANK_WEIGHTS[role_type]
+    ranks = list(rank_weights.keys())
+    weights = list(rank_weights.values())
+    rank_grade = rng.choices(ranks, weights=weights, k=1)[0]
+
+    # Select branch (uniform distribution, but with some role-based adjustments)
+    branches = list(MilitaryBranch)
+
+    # Slight adjustments based on role specialty
+    branch_weights = [1.0] * len(branches)
+    if "cyber" in role_lower or "ew" in role_lower:
+        # Cyber/EW more likely Air Force, Space Force, or Navy
+        branch_weights[branches.index(MilitaryBranch.AIR_FORCE)] = 2.0
+        branch_weights[branches.index(MilitaryBranch.SPACE_FORCE)] = 1.5
+        branch_weights[branches.index(MilitaryBranch.NAVY)] = 1.5
+    elif "fires" in role_lower:
+        # Fires more likely Army or Marines
+        branch_weights[branches.index(MilitaryBranch.ARMY)] = 2.0
+        branch_weights[branches.index(MilitaryBranch.MARINE_CORPS)] = 1.5
+    elif "engineer" in role_lower:
+        # Engineers more likely Army
+        branch_weights[branches.index(MilitaryBranch.ARMY)] = 2.5
+    elif "protection" in role_lower:
+        # Protection balanced but slight Army/Marines tilt
+        branch_weights[branches.index(MilitaryBranch.ARMY)] = 1.5
+        branch_weights[branches.index(MilitaryBranch.MARINE_CORPS)] = 1.3
+
+    branch = rng.choices(branches, weights=branch_weights, k=1)[0]
+
+    # Get rank details for selected branch and grade
+    rank_info = RANK_STRUCTURES[branch][rank_grade]
+    rank_abbrev, rank_title = rank_info
+
+    # Generate name
+    first_name = rng.choice(SAMPLE_FIRST_NAMES)
+    last_name = rng.choice(SAMPLE_LAST_NAMES)
+
+    return MilitaryPersona(
+        branch=branch,
+        rank_grade=rank_grade,
+        rank_abbrev=rank_abbrev,
+        rank_title=rank_title,
+        first_name=first_name,
+        last_name=last_name,
+    )
 
 
 # =============================================================================
@@ -686,20 +948,24 @@ class StaffAgent:
     - A role-specific system prompt defining doctrinal responsibilities
     - Access to relevant RAG retriever tools
     - The shared LLM backend (ChatOpenAI)
+    - A military persona with branch, rank, and name
 
     The agent uses OpenAI function calling to determine when to invoke tools.
 
     Attributes:
         role: The StaffRole enum value for this agent
         name: String name of the role
+        persona: MilitaryPersona with branch, rank, and name information
         system_prompt: Full system prompt including role description and tool instructions
         tools: List of LangChain Tools available to this agent
         verbose: Whether to print agent reasoning steps
         executor: The LangChain AgentExecutor that runs the agent
 
     Example:
-        >>> config = WARGATEConfig(model_name="gpt-4.1")
+        >>> config = WARGATEConfig(model_name="gpt-4.1", persona_seed=42)
         >>> j2_agent = create_staff_agent(StaffRole.J2, config)
+        >>> print(j2_agent.persona.full_designation)
+        'COL (US Army) James Smith'
         >>> response = j2_agent.invoke("Assess enemy force disposition")
     """
 
@@ -708,7 +974,8 @@ class StaffAgent:
         role: StaffRole,
         llm: ChatOpenAI,
         tools: list[Tool],
-        verbose: bool = True
+        verbose: bool = True,
+        persona: MilitaryPersona | None = None,
     ):
         """
         Initialize a staff agent.
@@ -718,13 +985,16 @@ class StaffAgent:
             llm: Configured ChatOpenAI instance
             tools: List of tools this agent can use
             verbose: Whether to print verbose agent output
+            persona: Optional MilitaryPersona with branch/rank/name
         """
         self.role = role
         self.name = role.value
-        # Combine role-specific prompt with tool-use instructions
-        self.system_prompt = STAFF_SYSTEM_PROMPTS[role] + TOOL_USE_INSTRUCTIONS
+        self.persona = persona
         self.tools = tools
         self.verbose = verbose
+
+        # Build the system prompt with persona and branch culture
+        self.system_prompt = self._build_system_prompt()
 
         # Create the agent using OpenAI function calling
         # This is the modern LangChain pattern (equivalent to AgentType.OPENAI_FUNCTIONS)
@@ -751,6 +1021,48 @@ class StaffAgent:
             return_intermediate_steps=False,  # Only return final polished output
         )
 
+    def _build_system_prompt(self) -> str:
+        """Build the complete system prompt with persona and branch culture."""
+        # Get the base role-specific prompt
+        base_prompt = STAFF_SYSTEM_PROMPTS[self.role]
+
+        # If we have a persona, prepend identity and add branch culture
+        if self.persona:
+            # Create role title based on role type
+            role_title = self._get_role_title()
+
+            identity_section = f"""You are {self.persona.full_designation}, serving as the {role_title}.
+
+{self.persona.culture_description}
+
+"""
+            # Combine: Identity + Branch Culture + Original Role Prompt + Tool Instructions
+            return identity_section + base_prompt + TOOL_USE_INSTRUCTIONS
+        else:
+            # No persona, just use original prompt + tool instructions
+            return base_prompt + TOOL_USE_INSTRUCTIONS
+
+    def _get_role_title(self) -> str:
+        """Get a human-readable title for the role."""
+        role_titles = {
+            StaffRole.COMMANDER: "Commander",
+            StaffRole.J1: "J1 (Personnel)",
+            StaffRole.J2: "J2 (Intelligence)",
+            StaffRole.J3: "J3 (Operations)",
+            StaffRole.J4: "J4 (Logistics)",
+            StaffRole.J5: "J5 (Plans)",
+            StaffRole.J6: "J6 (Communications)",
+            StaffRole.J7: "J7 (Training)",
+            StaffRole.J8: "J8 (Resources)",
+            StaffRole.CYBER_EW: "Cyber/EW Officer",
+            StaffRole.FIRES: "Fires Officer",
+            StaffRole.ENGINEER: "Engineer Officer",
+            StaffRole.PROTECTION: "Protection Officer",
+            StaffRole.SJA: "Staff Judge Advocate",
+            StaffRole.PAO: "Public Affairs Officer",
+        }
+        return role_titles.get(self.role, self.role.value)
+
     def invoke(self, input_text: str, chat_history: list[BaseMessage] | None = None) -> str:
         """
         Invoke the agent with input and optional chat history.
@@ -769,13 +1081,15 @@ class StaffAgent:
         return result.get("output", "")
 
     def __repr__(self) -> str:
-        return f"StaffAgent(role={self.role.value}, tools={[t.name for t in self.tools]})"
+        persona_str = f", persona={self.persona.short_designation}" if self.persona else ""
+        return f"StaffAgent(role={self.role.value}{persona_str}, tools={[t.name for t in self.tools]})"
 
 
 def create_staff_agent(
     role: StaffRole,
     config: WARGATEConfig,
     custom_tools: list[Tool] | None = None,
+    persona: MilitaryPersona | None = None,
 ) -> StaffAgent:
     """
     Factory function to create a staff agent for a given role.
@@ -784,17 +1098,26 @@ def create_staff_agent(
         role: The StaffRole to create an agent for
         config: WARGATEConfig with model and other settings
         custom_tools: Optional custom tools to override default role tools
+        persona: Optional explicit persona. If None and config.persona_seed is set,
+                 a persona will be auto-generated.
 
     Returns:
-        Configured StaffAgent instance
+        Configured StaffAgent instance with military persona
 
     Example:
-        >>> config = WARGATEConfig(model_name="gpt-4.1", temperature=0.5)
+        >>> config = WARGATEConfig(model_name="gpt-4.1", persona_seed=42)
         >>> j3_agent = create_staff_agent(StaffRole.J3, config)
+        >>> print(j3_agent.persona.full_designation)
+        'BG (US Army) Michael Johnson'
 
         # With custom tools:
         >>> my_tools = [create_rag_tool("my_retriever", "...", my_func)]
         >>> agent = create_staff_agent(StaffRole.J2, config, custom_tools=my_tools)
+
+        # With explicit persona:
+        >>> from wargate import generate_random_branch_and_rank
+        >>> my_persona = generate_random_branch_and_rank("j5_plans", seed=123)
+        >>> agent = create_staff_agent(StaffRole.J5, config, persona=my_persona)
     """
     llm = ChatOpenAI(
         model=config.model_name,
@@ -806,11 +1129,16 @@ def create_staff_agent(
     # Use custom tools if provided, otherwise use default role tools
     tools = custom_tools if custom_tools is not None else ROLE_TOOLS.get(role, [doctrine_retriever])
 
+    # Generate persona if not provided and seed is configured
+    if persona is None and config.persona_seed is not None:
+        persona = generate_random_branch_and_rank(role.value, seed=config.persona_seed)
+
     return StaffAgent(
         role=role,
         llm=llm,
         tools=tools,
         verbose=config.verbose,
+        persona=persona,
     )
 
 
@@ -1621,6 +1949,7 @@ def run_joint_staff_planning(
     temperature: float = 0.7,
     verbose: bool = True,
     api_key: str | None = None,
+    persona_seed: int | None = None,
 ) -> str:
     """
     Main entry point for joint staff planning.
@@ -1639,6 +1968,9 @@ def run_joint_staff_planning(
         temperature: LLM temperature (default: 0.7)
         verbose: Enable verbose output (default: True)
         api_key: OpenAI API key (optional, uses env var if not provided)
+        persona_seed: Optional seed for reproducible military persona generation.
+                      When provided, each staff agent gets a consistent branch,
+                      rank, and name based on this seed.
 
     Returns:
         A structured planning product string containing:
@@ -1657,7 +1989,7 @@ def run_joint_staff_planning(
         ... A near-peer adversary has massed forces along the border of a NATO ally.
         ... Intelligence indicates an imminent invasion within 72 hours.
         ... '''
-        >>> result = run_joint_staff_planning(scenario)
+        >>> result = run_joint_staff_planning(scenario, persona_seed=42)
         >>> print(result)
     """
     config = WARGATEConfig(
@@ -1665,6 +1997,7 @@ def run_joint_staff_planning(
         temperature=temperature,
         verbose=verbose,
         api_key=api_key,
+        persona_seed=persona_seed,
     )
 
     controller = JointStaffPlanningController(config)
@@ -2417,6 +2750,13 @@ Example usage:
         help="Use legacy WARGATEOrchestrator instead of new JointStaffPlanningController"
     )
 
+    parser.add_argument(
+        "--persona-seed", "-p",
+        type=int,
+        default=None,
+        help="Seed for reproducible military persona generation (gives each agent a branch/rank/name)"
+    )
+
     args = parser.parse_args()
 
     # Get scenario
@@ -2468,6 +2808,7 @@ Time available for planning: 48 hours
             model_name=args.model,
             temperature=args.temperature,
             verbose=not args.quiet,
+            persona_seed=args.persona_seed,
         )
 
     # Output results

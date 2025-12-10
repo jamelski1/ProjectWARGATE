@@ -22,6 +22,11 @@ from wargate import (
     WARGATEConfig,
     StaffRole,
     create_staff_agent,
+    create_all_staff_agents,
+    # Persona generation
+    MilitaryBranch,
+    MilitaryPersona,
+    generate_random_branch_and_rank,
 )
 
 
@@ -285,7 +290,86 @@ def example_multi_scenario_comparison():
 
 
 # =============================================================================
-# EXAMPLE 6: Legacy Orchestrator
+# EXAMPLE 6: Using Military Personas
+# =============================================================================
+
+def example_with_personas():
+    """
+    Example demonstrating the military persona feature.
+
+    Each staff agent can be assigned a random US military branch, rank, and name.
+    This adds branch-specific cultural perspectives to their responses.
+    """
+    print("=" * 80)
+    print("MILITARY PERSONA DEMONSTRATION")
+    print("=" * 80)
+
+    # Generate personas for all staff roles with a fixed seed (reproducible)
+    print("\n--- Generating Staff Roster (seed=42) ---\n")
+
+    for role in StaffRole:
+        persona = generate_random_branch_and_rank(role.value, seed=42)
+        print(f"{role.value:20s} -> {persona.full_designation}")
+        print(f"                      Branch Culture: {persona.branch.value}")
+        print()
+
+    # Create a config with persona_seed for all agents
+    config = WARGATEConfig(
+        model_name="gpt-4.1",
+        temperature=0.7,
+        verbose=True,
+        persona_seed=42,  # Ensures reproducible personas
+    )
+
+    # Create all agents with personas
+    staff = create_all_staff_agents(config)
+
+    # Show the created agents with their personas
+    print("\n--- Created Staff Agents ---\n")
+    for role, agent in staff.items():
+        if agent.persona:
+            print(f"{agent.persona.full_designation} - {agent._get_role_title()}")
+        else:
+            print(f"{role.value} (no persona)")
+
+    # Example: Query a single agent with persona
+    print("\n--- Querying J2 with Persona ---\n")
+
+    j2_agent = staff[StaffRole.J2]
+    print(f"J2 Officer: {j2_agent.persona.full_designation}")
+    print(f"Branch perspective: {j2_agent.persona.branch.value}")
+    print()
+
+    # Note: In a real scenario, you would run:
+    # response = j2_agent.invoke("Provide initial threat assessment")
+    # print(response)
+
+    return staff
+
+
+def example_custom_persona():
+    """Example of creating an agent with a specific custom persona."""
+
+    # Generate a specific persona
+    persona = generate_random_branch_and_rank("j5_plans", seed=123)
+    print(f"Generated persona: {persona.full_designation}")
+    print(f"  Branch: {persona.branch.value}")
+    print(f"  Rank: {persona.rank_title} ({persona.rank_grade})")
+    print(f"  Name: {persona.first_name} {persona.last_name}")
+
+    # Create agent with explicit persona
+    config = WARGATEConfig(model_name="gpt-4.1", verbose=True)
+    agent = create_staff_agent(StaffRole.J5, config, persona=persona)
+
+    print(f"\nCreated agent: {agent}")
+    print(f"System prompt preview (first 500 chars):")
+    print(agent.system_prompt[:500] + "...")
+
+    return agent
+
+
+# =============================================================================
+# EXAMPLE 7: Legacy Orchestrator
 # =============================================================================
 
 def example_legacy_orchestrator():
@@ -319,7 +403,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WARGATE example usage")
     parser.add_argument(
         "--example",
-        choices=["basic", "controller", "stepbystep", "single", "multi", "legacy"],
+        choices=["basic", "controller", "stepbystep", "single", "multi", "personas", "custom_persona", "legacy"],
         default="basic",
         help="Which example to run"
     )
@@ -332,6 +416,8 @@ if __name__ == "__main__":
         "stepbystep": example_step_by_step,
         "single": example_single_agent_query,
         "multi": example_multi_scenario_comparison,
+        "personas": example_with_personas,
+        "custom_persona": example_custom_persona,
         "legacy": example_legacy_orchestrator,
     }
 
