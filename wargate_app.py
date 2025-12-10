@@ -3831,19 +3831,33 @@ def run_phase_with_live_dialogue(
                 substep=substep,
             )
 
+    # Track turn count for progress calculation
+    turn_count = 0
+    expected_turns_per_substep = {'a': 25, 'b': 1, 'c': 8, 'd': 2}  # Approximate
+
     def on_turn_callback(turn: DialogueTurn):
         """Called for each dialogue turn - renders with typing indicator animation."""
-        nonlocal is_first_turn_in_substep
+        nonlocal is_first_turn_in_substep, turn_count
 
         # Clear micro-progress when first turn arrives
         if is_first_turn_in_substep and micro_progress_container:
             micro_progress_container.empty()
             is_first_turn_in_substep = False
 
+        # Increment turn count for this substep
+        turn_count += 1
+
+        # Update terminal progress based on turn count
+        expected = expected_turns_per_substep.get(current_substep, 10)
+        # Start at 30% of substep (after prep), progress to 100%
+        turn_progress = 0.3 + (0.7 * min(turn_count / expected, 1.0))
+        speaker_name = turn.get('speaker', 'Staff')
+        update_terminal_progress(current_substep, turn_progress, f"{speaker_name} speaking...")
+
         # 1) Show typing indicator in SEPARATE container
         show_typing_indicator(
             typing_container,
-            turn.get('speaker', 'Staff'),
+            speaker_name,
             turn.get('role_display', ''),
         )
         time.sleep(0.35)  # Brief pause to see typing indicator
@@ -3860,9 +3874,10 @@ def run_phase_with_live_dialogue(
 
     def on_substep_callback(substep: str, description: str):
         """Called when starting a new substep - shows micro-progress."""
-        nonlocal current_substep, live_turns, is_first_turn_in_substep
+        nonlocal current_substep, live_turns, is_first_turn_in_substep, turn_count
         current_substep = substep
         is_first_turn_in_substep = True
+        turn_count = 0  # Reset turn count for new substep
         st.session_state.current_substep = substep
         st.session_state.substep_status = description
 
@@ -3899,9 +3914,11 @@ def run_phase_with_live_dialogue(
             with banner_container:
                 render_current_phase_banner(phase.value, phase_info['name'], substep)
 
-        # Update mission terminal with substep progress
+        # Update mission terminal - DON'T reset for substep 'a' since micro-progress already showed it
+        # For other substeps, show starting progress
         substep_names = {'a': 'Staff Meeting', 'b': 'Slide Generation', 'c': 'Commander Brief', 'd': 'Commander Guidance'}
-        update_terminal_progress(substep, 0.0, f"Starting {substep_names.get(substep, substep)}...")
+        if substep != 'a':
+            update_terminal_progress(substep, 0.1, f"Starting {substep_names.get(substep, substep)}...")
 
     try:
         # Clear live turns for this phase
