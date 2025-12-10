@@ -3036,9 +3036,6 @@ def main():
         elif not os.environ.get("OPENAI_API_KEY"):
             st.error("🔑 OPENAI_API_KEY environment variable is not set. Please set it and restart.")
         else:
-            # Immediate visual feedback
-            st.info("🚀 **Starting Joint Planning Process...** This may take several minutes.")
-
             st.session_state.scenario_text = inputs["scenario"]
             st.session_state.is_running = True
             st.session_state.current_phase = JPPPhase.PLANNING_INITIATION
@@ -3060,10 +3057,20 @@ def main():
 
             if success:
                 st.rerun()
+            return  # Don't render tabs after run - will rerun
 
-    # Main content with tabs
-    # Note: "Planning Outputs" tab comes first so it's the default active tab
-    if st.session_state.phase_outputs:
+    # Main content - show different views based on state
+    if st.session_state.is_running:
+        # Show running indicator (shouldn't normally reach here, but safety fallback)
+        st.info("🔄 Planning in progress... Please wait.")
+        if st.session_state.live_turns:
+            st.markdown("### Live Dialogue")
+            st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
+            for turn in st.session_state.live_turns:
+                render_dialogue_bubble_from_turn(turn)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    elif st.session_state.phase_outputs:
         # After a run, show planning outputs as default with instructions in second tab
         planning_tab, instructions_tab = st.tabs(["Planning Outputs", "Pipeline Instructions"])
 
