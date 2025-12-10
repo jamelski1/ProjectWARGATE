@@ -62,6 +62,72 @@ from wargate import (
 
 
 # =============================================================================
+# RETRY LOGIC FOR TRANSIENT NETWORK ERRORS
+# =============================================================================
+
+def invoke_with_retry(
+    agent: Any,
+    prompt: str,
+    max_retries: int = 3,
+    initial_delay: float = 2.0,
+) -> str:
+    """
+    Invoke an agent with automatic retry on transient network errors.
+
+    Handles common network issues like:
+    - RemoteProtocolError (connection closed unexpectedly)
+    - ConnectionError
+    - Timeout errors
+
+    Args:
+        agent: The agent to invoke (must have .invoke method)
+        prompt: The prompt to send
+        max_retries: Maximum number of retry attempts (default 3)
+        initial_delay: Initial delay in seconds, doubles each retry (default 2.0)
+
+    Returns:
+        The agent's response string
+
+    Raises:
+        The original exception if all retries fail
+    """
+    last_exception = None
+    delay = initial_delay
+
+    for attempt in range(max_retries + 1):
+        try:
+            return agent.invoke(prompt)
+        except Exception as e:
+            error_name = type(e).__name__
+            error_msg = str(e).lower()
+
+            # Check if this is a transient network error worth retrying
+            is_transient = any([
+                "remoteprotocolerror" in error_name.lower(),
+                "connectionerror" in error_name.lower(),
+                "timeout" in error_name.lower(),
+                "peer closed connection" in error_msg,
+                "incomplete chunked read" in error_msg,
+                "connection reset" in error_msg,
+                "network" in error_msg,
+            ])
+
+            if is_transient and attempt < max_retries:
+                print(f"[RETRY] Network error on attempt {attempt + 1}: {error_name}")
+                print(f"[RETRY] Waiting {delay:.1f}s before retry...")
+                time.sleep(delay)
+                delay *= 2  # Exponential backoff
+                last_exception = e
+            else:
+                # Not a transient error or out of retries
+                raise
+
+    # Should not reach here, but raise last exception if we do
+    if last_exception:
+        raise last_exception
+
+
+# =============================================================================
 # TYPE DEFINITIONS
 # =============================================================================
 
@@ -788,13 +854,40 @@ class MeetingOrchestrator:
         return f"**{turn['speaker']} ({turn['role_display']}):** {turn['text']}"
 
     def _call_llm(self, system_prompt: str, user_prompt: str) -> str:
-        """Make a direct LLM call (for slide generation, guidance, etc.)."""
+        """Make a direct LLM call (for slide generation, guidance, etc.) with retry."""
         messages = [
             SystemMessage(content=system_prompt),
             HumanMessage(content=user_prompt),
         ]
-        response = self.llm.invoke(messages)
-        return response.content
+
+        max_retries = 3
+        delay = 2.0
+        last_exception = None
+
+        for attempt in range(max_retries + 1):
+            try:
+                response = self.llm.invoke(messages)
+                return response.content
+            except Exception as e:
+                error_name = type(e).__name__
+                error_msg = str(e).lower()
+                is_transient = any([
+                    "remoteprotocolerror" in error_name.lower(),
+                    "connectionerror" in error_name.lower(),
+                    "timeout" in error_name.lower(),
+                    "peer closed connection" in error_msg,
+                    "incomplete chunked read" in error_msg,
+                ])
+                if is_transient and attempt < max_retries:
+                    print(f"[RETRY] LLM call error on attempt {attempt + 1}: {error_name}")
+                    time.sleep(delay)
+                    delay *= 2
+                    last_exception = e
+                else:
+                    raise
+
+        if last_exception:
+            raise last_exception
 
     # =========================================================================
     # STAFF MEETING
@@ -883,7 +976,7 @@ class MeetingOrchestrator:
             )
 
             # Get agent response
-            response = agent.invoke(prompt)
+            response = invoke_with_retry(agent, prompt)
 
             # Create the turn record
             turn = DialogueTurn(
@@ -1108,7 +1201,7 @@ NOTES: [Speaker notes]
                 questions_so_far=questions_so_far,
             )
 
-            brief_response = agent.invoke(brief_prompt)
+            brief_response = invoke_with_retry(agent, brief_prompt)
 
             brief_turn = DialogueTurn(
                 speaker=persona.short_designation,
@@ -1171,7 +1264,7 @@ Keep your question to 1-2 sentences. Be direct and commanding."""
 
 Provide a direct, substantive answer. Be specific and honest about any limitations."""
 
-                answer = agent.invoke(answer_prompt)
+                answer = invoke_with_retry(agent, answer_prompt)
 
                 answer_turn = DialogueTurn(
                     speaker=persona.short_designation,
@@ -1265,7 +1358,7 @@ Provide a direct, substantive answer. Be specific and honest about any limitatio
             scenario=scenario,
         )
 
-        guidance_text = commander.invoke(prompt)
+        guidance_text = invoke_with_retry(commander, prompt)
 
         # Create turn for UI
         guidance_turn = DialogueTurn(
