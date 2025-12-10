@@ -112,6 +112,359 @@ STAFF_ROLE_DISPLAY = {
 
 
 # =============================================================================
+# TEXT LOG FILE OUTPUT SYSTEM
+# =============================================================================
+
+LOG_ROOT = Path("wargate_logs")  # Local folder for text logs
+
+# Map phase IDs to folder names
+PHASE_FOLDER_MAP = {
+    "step1_planning_initiation": "PlanningInitiation",
+    "step2_mission_analysis": "MissionAnalysis",
+    "step3_coa_development": "COADevelopment",
+    "step4_coa_analysis": "COAAnalysis",
+    "step5_coa_comparison": "COAComparison",
+    "step6_coa_approval": "COAApproval",
+    "step7_plan_development": "PlanDevelopment",
+    # Also support enum names directly
+    "PLANNING_INITIATION": "PlanningInitiation",
+    "MISSION_ANALYSIS": "MissionAnalysis",
+    "COA_DEVELOPMENT": "COADevelopment",
+    "COA_ANALYSIS": "COAAnalysis",
+    "COA_COMPARISON": "COAComparison",
+    "COA_APPROVAL": "COAApproval",
+    "PLAN_DEVELOPMENT": "PlanDevelopment",
+}
+
+# Map substep keys to filenames
+SUBSTEP_FILE_MAP = {
+    "staff_meeting": "Staff_Meeting_Minutes.txt",
+    "slides": "Slides.txt",
+    "brief_cmdr": "Brief_CMDR_Minutes.txt",
+    "cmdr_guidance": "CMDR_Guidance.txt",
+}
+
+
+def sanitize_name(name: str) -> str:
+    """
+    Turn user-provided operation names into safe folder names.
+    E.g. 'Operation GenAI: Phase 1' -> 'Operation_GenAI_Phase_1'
+    """
+    name = name.strip()
+    # Replace non-alphanumeric with underscores
+    name = re.sub(r"[^A-Za-z0-9]+", "_", name)
+    # Collapse multiple underscores
+    name = re.sub(r"_+", "_", name)
+    # Trim leading/trailing underscores
+    return name.strip("_") or "Operation"
+
+
+def save_phase_text_log(
+    op_name: str,
+    phase_id: str,
+    substep_key: str,
+    content: str,
+) -> Path:
+    """
+    Save text content for an operation/phase/substep to:
+    /LOG_ROOT/OpName/PhaseFolder/Filename.txt
+
+    Args:
+        op_name: Operation name (will be sanitized)
+        phase_id: Phase identifier (e.g., "step2_mission_analysis" or "MISSION_ANALYSIS")
+        substep_key: Substep key (e.g., "staff_meeting", "slides", "brief_cmdr", "cmdr_guidance")
+        content: The text content to save
+
+    Returns:
+        The full file path where content was saved
+    """
+    safe_op = sanitize_name(op_name)
+    phase_folder = PHASE_FOLDER_MAP.get(phase_id, phase_id)
+    filename = SUBSTEP_FILE_MAP.get(substep_key, f"{substep_key}.txt")
+
+    target_dir = LOG_ROOT / safe_op / phase_folder
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    file_path = target_dir / filename
+    file_path.write_text(content, encoding="utf-8")
+    return file_path
+
+
+def build_dialogue_minutes_text(
+    op_name: str,
+    phase_label: str,
+    substep_label: str,
+    turns: list[DialogueTurn],
+    classification: str = "UNCLASSIFIED // FOR EXERCISE PURPOSES ONLY",
+) -> str:
+    """
+    Build a human-readable meeting minutes log as plain text.
+
+    Args:
+        op_name: Operation name
+        phase_label: Phase descriptor (e.g., "Step 2: Mission Analysis")
+        substep_label: Substep name (e.g., "Staff Meeting", "Commander Brief")
+        turns: List of DialogueTurn objects
+        classification: Classification marking
+
+    Returns:
+        Formatted plain text meeting minutes
+    """
+    lines: list[str] = []
+
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%MZ")
+    lines.append(f"{classification}")
+    lines.append("=" * 70)
+    lines.append(f"Operation: {op_name}")
+    lines.append(f"Phase: {phase_label}")
+    lines.append(f"Sub-step: {substep_label}")
+    lines.append(f"Generated: {timestamp}")
+    lines.append("=" * 70)
+    lines.append("")
+    lines.append("=== MEETING MINUTES ===")
+    lines.append("")
+
+    for t in turns:
+        speaker = t.get("speaker", "Unknown")
+        branch = t.get("branch", "Joint")
+        role = t.get("role_display", t.get("role", "Staff"))
+        content = t.get("text", t.get("content", ""))
+
+        header = f"{speaker} ({branch}, {role}):"
+        lines.append(header)
+        # Indent the text block
+        for para in content.split("\n"):
+            para = para.strip()
+            if para:
+                lines.append(f"    {para}")
+        lines.append("")  # Blank line between speakers
+
+    lines.append("=" * 70)
+    lines.append("END OF MINUTES")
+    lines.append("=" * 70)
+
+    return "\n".join(lines)
+
+
+def build_slides_text(
+    op_name: str,
+    phase_label: str,
+    sections: list[dict],
+    classification: str = "UNCLASSIFIED // FOR EXERCISE PURPOSES ONLY",
+) -> str:
+    """
+    Turn a list of slide sections into a text report.
+
+    Args:
+        op_name: Operation name
+        phase_label: Phase descriptor (e.g., "Step 2: Mission Analysis")
+        sections: List of dicts with keys: 'title', 'subtitle' (optional), 'body'
+        classification: Classification marking
+
+    Returns:
+        Formatted plain text slide export
+    """
+    lines: list[str] = []
+
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%MZ")
+    lines.append(f"{classification}")
+    lines.append("=" * 70)
+    lines.append(f"Operation: {op_name}")
+    lines.append(f"Phase: {phase_label}")
+    lines.append("Product: Slide/Brief Text Export")
+    lines.append(f"Generated: {timestamp}")
+    lines.append("=" * 70)
+    lines.append("")
+    lines.append("=== SLIDE CONTENT ===")
+    lines.append("")
+
+    for idx, sec in enumerate(sections, start=1):
+        title = (sec.get("title") or "").strip()
+        subtitle = (sec.get("subtitle") or "").strip()
+        body = (sec.get("body") or "").strip()
+
+        lines.append("-" * 50)
+        lines.append(f"SLIDE {idx}: {title}")
+        if subtitle:
+            lines.append(f"    {subtitle}")
+        lines.append("-" * 50)
+        lines.append("")
+
+        if body:
+            for line in body.split("\n"):
+                line = line.strip()
+                if line:
+                    lines.append(f"    {line}")
+        lines.append("")
+
+    lines.append("=" * 70)
+    lines.append("END OF SLIDES")
+    lines.append("=" * 70)
+
+    return "\n".join(lines)
+
+
+def build_guidance_text(
+    op_name: str,
+    phase_label: str,
+    guidance_text: str,
+    priority_tasks: list[str] | None = None,
+    classification: str = "UNCLASSIFIED // FOR EXERCISE PURPOSES ONLY",
+) -> str:
+    """
+    Build a text export for Commander's Guidance.
+
+    Args:
+        op_name: Operation name
+        phase_label: Phase descriptor
+        guidance_text: The commander's guidance text
+        priority_tasks: List of priority tasks (optional)
+        classification: Classification marking
+
+    Returns:
+        Formatted plain text guidance export
+    """
+    lines: list[str] = []
+
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%MZ")
+    lines.append(f"{classification}")
+    lines.append("=" * 70)
+    lines.append(f"Operation: {op_name}")
+    lines.append(f"Phase: {phase_label}")
+    lines.append("Product: Commander's Guidance")
+    lines.append(f"Generated: {timestamp}")
+    lines.append("=" * 70)
+    lines.append("")
+    lines.append("=== COMMANDER'S GUIDANCE ===")
+    lines.append("")
+
+    if guidance_text:
+        for para in guidance_text.split("\n"):
+            para = para.strip()
+            if para:
+                lines.append(para)
+        lines.append("")
+
+    if priority_tasks:
+        lines.append("")
+        lines.append("PRIORITY TASKS:")
+        for i, task in enumerate(priority_tasks, start=1):
+            lines.append(f"    {i}. {task}")
+        lines.append("")
+
+    lines.append("=" * 70)
+    lines.append("END OF GUIDANCE")
+    lines.append("=" * 70)
+
+    return "\n".join(lines)
+
+
+def save_phase_outputs_as_text(
+    op_name: str,
+    phase_name: str,
+    phase_result: PhaseResult,
+) -> dict[str, Path]:
+    """
+    Save all outputs from a phase as text files.
+
+    This is the main entry point for saving phase outputs. Call this
+    after each phase completes.
+
+    Args:
+        op_name: Operation name (from scenario or user input)
+        phase_name: Phase enum name (e.g., "PLANNING_INITIATION", "MISSION_ANALYSIS")
+        phase_result: The PhaseResult from the orchestrator
+
+    Returns:
+        Dict mapping substep keys to the file paths where content was saved
+    """
+    saved_files: dict[str, Path] = {}
+    phase_label = phase_result.get("phase_name", phase_name.replace("_", " ").title())
+
+    # 1. Staff Meeting Minutes
+    meeting = phase_result.get("meeting", {})
+    meeting_turns = meeting.get("turns", [])
+    if meeting_turns:
+        minutes_text = build_dialogue_minutes_text(
+            op_name=op_name,
+            phase_label=phase_label,
+            substep_label="Staff Meeting",
+            turns=meeting_turns,
+        )
+        saved_files["staff_meeting"] = save_phase_text_log(
+            op_name=op_name,
+            phase_id=phase_name,
+            substep_key="staff_meeting",
+            content=minutes_text,
+        )
+
+    # 2. Slides
+    slides = phase_result.get("slides", [])
+    if slides:
+        # Convert SlideContent objects to section dicts
+        sections = []
+        for slide in slides:
+            bullets = slide.get("bullets", [])
+            body = "\n".join(f"- {b}" for b in bullets)
+            if slide.get("notes"):
+                body += f"\n\nNotes: {slide.get('notes')}"
+            sections.append({
+                "title": slide.get("title", ""),
+                "subtitle": None,
+                "body": body,
+            })
+
+        slides_text = build_slides_text(
+            op_name=op_name,
+            phase_label=phase_label,
+            sections=sections,
+        )
+        saved_files["slides"] = save_phase_text_log(
+            op_name=op_name,
+            phase_id=phase_name,
+            substep_key="slides",
+            content=slides_text,
+        )
+
+    # 3. Commander Brief Minutes
+    brief = phase_result.get("brief", {})
+    brief_turns = brief.get("turns", [])
+    if brief_turns:
+        brief_text = build_dialogue_minutes_text(
+            op_name=op_name,
+            phase_label=phase_label,
+            substep_label="Commander Brief",
+            turns=brief_turns,
+        )
+        saved_files["brief_cmdr"] = save_phase_text_log(
+            op_name=op_name,
+            phase_id=phase_name,
+            substep_key="brief_cmdr",
+            content=brief_text,
+        )
+
+    # 4. Commander Guidance
+    guidance = phase_result.get("guidance", {})
+    guidance_text = guidance.get("guidance_text", "")
+    priority_tasks = guidance.get("priority_tasks", [])
+    if guidance_text or priority_tasks:
+        guidance_output = build_guidance_text(
+            op_name=op_name,
+            phase_label=phase_label,
+            guidance_text=guidance_text,
+            priority_tasks=priority_tasks,
+        )
+        saved_files["cmdr_guidance"] = save_phase_text_log(
+            op_name=op_name,
+            phase_id=phase_name,
+            substep_key="cmdr_guidance",
+            content=guidance_output,
+        )
+
+    return saved_files
+
+
+# =============================================================================
 # CUSTOM CSS - GOVERNMENT STYLE TEMPLATE
 # =============================================================================
 
@@ -152,6 +505,73 @@ GOVERNMENT_CSS = """
         --border-color: #3a3a5a;
         --shadow-color: rgba(0, 0, 0, 0.3);
     }
+}
+
+/* =================================================================
+   FORCE DARK MODE - Streamlit theme is dark
+   ================================================================= */
+
+/* Override CSS variables for forced dark mode */
+:root {
+    --bg-primary: #0E0E12;
+    --bg-secondary: #1A1A22;
+    --bg-tertiary: #252530;
+    --text-primary: #E6E6E6;
+    --text-secondary: #CCCCCC;
+    --text-muted: #999999;
+    --border-color: #3a3a5a;
+    --shadow-color: rgba(0, 0, 0, 0.4);
+}
+
+/* Fix service label ribbons on dialogue bubbles */
+.service-label {
+    color: #FFFFFF !important;
+    font-weight: 600 !important;
+}
+
+/* Service-specific colors for labels */
+.service-army { color: #4CAF50 !important; }
+.service-navy { color: #1E90FF !important; }
+.service-airforce { color: #87CEEB !important; }
+.service-marines { color: #FF4500 !important; }
+.service-spaceforce { color: #9A4DFF !important; }
+.service-coastguard { color: #FF6600 !important; }
+
+/* Fix dark mission terminal text */
+.mission-terminal {
+    color: #00FF00 !important;
+    font-family: "Consolas", "Monaco", "Courier New", monospace !important;
+}
+
+.mission-terminal * {
+    color: inherit;
+}
+
+/* Fix ALL stMarkdown text inside dark backgrounds */
+[data-testid="stMarkdown"] p,
+[data-testid="stMarkdown"] span,
+[data-testid="stMarkdown"] div {
+    color: #EAEAEA;
+}
+
+/* Ensure dialogue content is always readable */
+.dialogue-content,
+.dialogue-content p,
+.dialogue-content span {
+    color: #E6E6E6 !important;
+}
+
+.dialogue-rank {
+    color: #FFFFFF !important;
+}
+
+.dialogue-role {
+    color: #B0B0B0 !important;
+}
+
+/* Ensure dialogue badges have proper text color */
+.dialogue-badge {
+    color: #FFFFFF !important;
 }
 
 /* =================================================================
@@ -3572,21 +3992,35 @@ def run_single_phase_interactive(phase: JPPPhase, scenario: str) -> bool:
             st.session_state.phase_outputs[phase.name] = legacy_output
             st.session_state.phase_results[phase.name] = phase_result
 
-            # IMMEDIATELY generate and store PDFs - error resilient
-            # These will persist even if later phases fail
+            # Get operation name from session state or default
+            op_name = st.session_state.get("operation_name", "Operation WARGATE")
+
+            # IMMEDIATELY save text logs - error resilient
+            # These are the primary output for NotebookLM/external tools
+            try:
+                saved_files = save_phase_outputs_as_text(
+                    op_name=op_name,
+                    phase_name=phase.name,
+                    phase_result=phase_result,
+                )
+                if saved_files:
+                    with status_container:
+                        st.success(f"{phase_info['name']} complete! Text logs saved to wargate_logs/")
+            except Exception as log_error:
+                with status_container:
+                    st.warning(f"{phase_info['name']} complete. Text log saving failed: {log_error}")
+
+            # Also generate PDFs (optional, secondary to text logs)
             try:
                 pdf_result = generate_and_store_phase_pdfs(
                     phase_name=phase.name,
                     phase_result=phase_result,
-                    op_name="Operation WARGATE",
+                    op_name=op_name,
                     classification="UNCLASSIFIED // FOR EXERCISE PURPOSES ONLY"
                 )
-                with status_container:
-                    st.success(f"{phase_info['name']} complete! PDFs generated.")
             except Exception as pdf_error:
                 # PDF generation failure should NOT block phase completion
-                with status_container:
-                    st.warning(f"{phase_info['name']} complete. PDF generation failed: {pdf_error}")
+                pass  # Text logs are primary, PDFs are secondary
 
             st.session_state.is_running = False
             return True
@@ -3672,18 +4106,35 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                     substep='d',
                 )
 
-                # IMMEDIATELY generate and store PDFs - error resilient
-                # These will persist in session state even if later phases fail
+                # Get operation name from session state or default
+                op_name = st.session_state.get("operation_name", "Operation WARGATE")
+
+                # IMMEDIATELY save text logs - error resilient
+                # These are the primary output for NotebookLM/external tools
+                try:
+                    saved_files = save_phase_outputs_as_text(
+                        op_name=op_name,
+                        phase_name=phase.name,
+                        phase_result=phase_result,
+                    )
+                    # Log saved files to console for debugging
+                    if saved_files:
+                        for substep, path in saved_files.items():
+                            print(f"  Saved: {path}")
+                except Exception as log_error:
+                    st.warning(f"Text log saving for {phase_info['name']} failed: {log_error}")
+
+                # Also generate PDFs (optional, secondary to text logs)
                 try:
                     generate_and_store_phase_pdfs(
                         phase_name=phase.name,
                         phase_result=phase_result,
-                        op_name="Operation WARGATE",
+                        op_name=op_name,
                         classification="UNCLASSIFIED // FOR EXERCISE PURPOSES ONLY"
                     )
                 except Exception as pdf_error:
-                    # Log but don't stop - PDFs are secondary to phase completion
-                    st.warning(f"PDF generation for {phase_info['name']} failed: {pdf_error}")
+                    # PDF generation failure should NOT block phase completion
+                    pass  # Text logs are primary, PDFs are secondary
             else:
                 st.error(f"Phase {phase_info['name']} failed. Stopping.")
                 # Note: Previously completed phases' PDFs are still in session state
