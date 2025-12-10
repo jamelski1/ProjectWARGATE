@@ -36,7 +36,7 @@ import streamlit as st
 from io import BytesIO
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, TypedDict
 from dataclasses import dataclass
 from enum import Enum
 
@@ -1400,6 +1400,553 @@ def generate_phase_slides(
 
 
 # =============================================================================
+# IMPROVED PDF GENERATION - REAL CONTENT, IMMEDIATE GENERATION
+# =============================================================================
+
+class SlideSection(TypedDict):
+    """
+    Represents a section in a slide/report PDF.
+
+    Attributes:
+        title: Section heading (e.g., "Mission Statement", "Key Assumptions")
+        subtitle: Optional subtitle or descriptor (e.g., "From J2 Analysis")
+        body: Main content - may contain bullets/newlines, will be preserved
+    """
+    title: str
+    subtitle: str | None
+    body: str
+
+
+# Map JPPPhase enum names to human-readable phase IDs for PDF storage
+PHASE_ID_MAP = {
+    "PLANNING_INITIATION": "step1_planning_initiation",
+    "MISSION_ANALYSIS": "step2_mission_analysis",
+    "COA_DEVELOPMENT": "step3_coa_development",
+    "COA_ANALYSIS": "step4_coa_analysis",
+    "COA_COMPARISON": "step5_coa_comparison",
+    "COA_APPROVAL": "step6_coa_approval",
+    "PLAN_DEVELOPMENT": "step7_plan_development",
+}
+
+
+class WARGATEReportPDF(FPDF):
+    """
+    PDF class for WARGATE phase reports - text-focused, NotebookLM-friendly format.
+
+    Unlike WARGATESlidePDF (landscape/slide format), this creates portrait
+    documents optimized for reading and AI ingestion.
+    """
+
+    def __init__(
+        self,
+        op_name: str = "Operation WARGATE",
+        phase_label: str = "Planning Phase",
+        classification: str = "UNCLASSIFIED // FOR EXERCISE PURPOSES ONLY"
+    ):
+        super().__init__(orientation='P')  # Portrait for reports
+        self.op_name = op_name
+        self.phase_label = phase_label
+        self.classification = classification
+        self.set_auto_page_break(auto=True, margin=20)
+        self.add_page()
+
+    def header(self):
+        """Report header with classification banner."""
+        # Classification banner - purple
+        self.set_fill_color(106, 13, 173)
+        self.rect(0, 0, 210, 10, 'F')
+        self.set_font("Helvetica", "B", 9)
+        self.set_text_color(255, 255, 255)
+        self.set_xy(0, 2)
+        self.cell(210, 6, self.classification, align="C")
+
+        # Operation name and phase
+        self.set_xy(10, 14)
+        self.set_font("Helvetica", "B", 14)
+        self.set_text_color(106, 13, 173)
+        self.cell(0, 8, self.op_name, ln=True)
+
+        self.set_font("Helvetica", "", 11)
+        self.set_text_color(60, 60, 60)
+        self.cell(0, 6, self.phase_label, ln=True)
+
+        # Separator line
+        self.set_draw_color(106, 13, 173)
+        self.set_line_width(0.5)
+        self.line(10, 30, 200, 30)
+        self.ln(18)
+
+    def footer(self):
+        """Report footer with page number and classification."""
+        self.set_y(-15)
+
+        # Classification repeat
+        self.set_font("Helvetica", "I", 8)
+        self.set_text_color(128, 128, 128)
+        self.cell(0, 5, self.classification, align="C", ln=True)
+
+        # Page number
+        self.cell(0, 5, f"Page {self.page_no()}", align="C")
+
+    def add_section(self, title: str, subtitle: str | None, body: str):
+        """
+        Add a section to the report.
+
+        Args:
+            title: Section heading (rendered large/bold)
+            subtitle: Optional subtitle (rendered smaller/italic)
+            body: Content text - newlines and bullets preserved
+        """
+        # Section title
+        self.set_font("Helvetica", "B", 12)
+        self.set_text_color(26, 26, 46)
+        self.cell(0, 8, self._clean_text(title), ln=True)
+
+        # Subtitle if present
+        if subtitle:
+            self.set_font("Helvetica", "I", 10)
+            self.set_text_color(100, 100, 100)
+            self.cell(0, 5, self._clean_text(subtitle), ln=True)
+
+        self.ln(2)
+
+        # Body content
+        self.set_font("Helvetica", "", 10)
+        self.set_text_color(0, 0, 0)
+
+        # Process body - preserve structure
+        clean_body = self._clean_text(body)
+        lines = clean_body.split('\n')
+
+        for line in lines:
+            line = line.strip()
+            if not line:
+                self.ln(3)
+                continue
+
+            # Detect bullets/numbered lists
+            if line.startswith(('-', '*', '•')):
+                # Bullet point
+                self.set_x(15)
+                bullet_text = line.lstrip('-*• ').strip()
+                self.multi_cell(180, 5, f"• {bullet_text}")
+            elif len(line) > 2 and line[0].isdigit() and line[1] in '.):':
+                # Numbered item
+                self.set_x(15)
+                self.multi_cell(180, 5, line)
+            else:
+                # Regular paragraph
+                self.multi_cell(0, 5, line)
+
+        self.ln(5)
+
+    def add_transcript_entry(
+        self,
+        speaker: str,
+        rank: str,
+        branch: str,
+        role: str,
+        text: str
+    ):
+        """
+        Add a transcript entry (single dialogue turn).
+
+        Args:
+            speaker: Speaker name (e.g., "COL Smith")
+            rank: Rank abbreviation (e.g., "COL")
+            branch: Service branch (e.g., "US Army")
+            role: Staff role (e.g., "J2 - Intelligence")
+            text: The spoken content
+        """
+        # Speaker header
+        self.set_font("Helvetica", "B", 10)
+        self.set_text_color(106, 13, 173)
+        header = f"{speaker} ({branch}, {role}):"
+        self.cell(0, 6, self._clean_text(header), ln=True)
+
+        # Content
+        self.set_font("Helvetica", "", 10)
+        self.set_text_color(0, 0, 0)
+        self.set_x(15)
+        self.multi_cell(180, 5, self._clean_text(text))
+        self.ln(4)
+
+    def _clean_text(self, text: str) -> str:
+        """Clean text for PDF output - handle special chars and markdown."""
+        if not text:
+            return ""
+
+        # Remove markdown formatting
+        text = re.sub(r'\*\*([^*]+)\*\*', r'\1', text)
+        text = re.sub(r'\*([^*]+)\*', r'\1', text)
+        text = re.sub(r'__([^_]+)__', r'\1', text)
+        text = re.sub(r'_([^_]+)_', r'\1', text)
+        text = re.sub(r'#+\s*', '', text)
+
+        # Replace special characters
+        replacements = {
+            '\u2019': "'", '\u2018': "'",
+            '\u201c': '"', '\u201d': '"',
+            '\u2014': '-', '\u2013': '-',
+            '\u2022': '*', '\u2026': '...',
+            '\u00a0': ' ',
+        }
+        for old, new in replacements.items():
+            text = text.replace(old, new)
+
+        return text.encode('latin-1', errors='replace').decode('latin-1')
+
+
+def build_phase_pdf(
+    op_name: str,
+    phase_label: str,
+    classification: str,
+    sections: list[SlideSection]
+) -> BytesIO:
+    """
+    Build a text-focused PDF representing all slide/report content for a single phase.
+
+    This creates a NotebookLM-friendly document with proper headings, preserved
+    bullet structures, and clear section divisions.
+
+    Args:
+        op_name: Operation name (e.g., "Operation GenAI")
+        phase_label: Phase descriptor (e.g., "Step 2: Mission Analysis")
+        classification: Classification marking (e.g., "UNCLASSIFIED // FOUO")
+        sections: List of SlideSection dicts with title, subtitle, and body
+
+    Returns:
+        BytesIO buffer containing the PDF
+
+    Example:
+        sections = [
+            {
+                "title": "Mission Statement",
+                "subtitle": "Restated from Commander's Intent",
+                "body": "Conduct operations to secure...\n- Objective 1\n- Objective 2"
+            },
+            {
+                "title": "Key Assumptions",
+                "subtitle": None,
+                "body": "1. Enemy forces will...\n2. Allied support..."
+            }
+        ]
+        pdf_buffer = build_phase_pdf("Op WARGATE", "Step 2: Mission Analysis",
+                                      "UNCLASSIFIED", sections)
+    """
+    pdf = WARGATEReportPDF(
+        op_name=op_name,
+        phase_label=phase_label,
+        classification=classification
+    )
+
+    for section in sections:
+        pdf.add_section(
+            title=section.get("title", "Section"),
+            subtitle=section.get("subtitle"),
+            body=section.get("body", "")
+        )
+
+    # Generate to BytesIO
+    buffer = BytesIO()
+    pdf_output = pdf.output()
+    buffer.write(pdf_output)
+    buffer.seek(0)
+
+    return buffer
+
+
+def build_transcript_pdf(
+    op_name: str,
+    phase_label: str,
+    classification: str,
+    turns: list[DialogueTurn]
+) -> BytesIO:
+    """
+    Build a PDF containing the full dialogue transcript for a single phase.
+
+    Format includes speaker name, rank, branch, and role for each turn,
+    maintaining chronological order.
+
+    Args:
+        op_name: Operation name (e.g., "Operation GenAI")
+        phase_label: Phase descriptor (e.g., "Step 2: Mission Analysis - Staff Meeting")
+        classification: Classification marking
+        turns: List of DialogueTurn dicts from the meeting
+
+    Returns:
+        BytesIO buffer containing the PDF
+
+    Example:
+        turns = [
+            {
+                "speaker": "COL Young",
+                "role": "j2_intelligence",
+                "role_display": "J2 - Intelligence",
+                "branch": "US Air Force",
+                "rank": "COL",
+                "text": "Based on current intel...",
+                "turn_number": 1,
+                "is_commander": False
+            },
+            ...
+        ]
+        pdf_buffer = build_transcript_pdf("Op WARGATE", "Step 2: Mission Analysis",
+                                          "UNCLASSIFIED", turns)
+    """
+    pdf = WARGATEReportPDF(
+        op_name=op_name,
+        phase_label=f"{phase_label} - Transcript",
+        classification=classification
+    )
+
+    # Add metadata header
+    pdf.set_font("Helvetica", "I", 10)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 5, f"Dialogue Transcript - {len(turns)} turns", ln=True)
+    pdf.cell(0, 5, f"Generated: {datetime.now().strftime('%d %B %Y %H:%M')}", ln=True)
+    pdf.ln(8)
+
+    # Add each turn
+    for turn in turns:
+        speaker = turn.get("speaker", "Unknown")
+        rank = turn.get("rank", "")
+        branch = turn.get("branch", "")
+        role = turn.get("role_display", turn.get("role", "Staff"))
+        text = turn.get("text", "")
+
+        # Handle commander specially
+        if turn.get("is_commander", False):
+            role = "Commander"
+            branch = "Joint"
+
+        pdf.add_transcript_entry(
+            speaker=speaker,
+            rank=rank,
+            branch=branch,
+            role=role,
+            text=text
+        )
+
+    # Generate to BytesIO
+    buffer = BytesIO()
+    pdf_output = pdf.output()
+    buffer.write(pdf_output)
+    buffer.seek(0)
+
+    return buffer
+
+
+def extract_sections_from_phase_result(phase_result: PhaseResult) -> list[SlideSection]:
+    """
+    Extract SlideSection list from a PhaseResult's slides and other content.
+
+    This converts the orchestrator's output format into sections suitable
+    for build_phase_pdf.
+
+    Args:
+        phase_result: The PhaseResult from the orchestrator
+
+    Returns:
+        List of SlideSection dicts
+    """
+    sections: list[SlideSection] = []
+
+    # Convert slides to sections
+    for slide in phase_result.get("slides", []):
+        title = slide.get("title", "Section")
+        bullets = slide.get("bullets", [])
+        notes = slide.get("notes", "")
+
+        # Convert bullets to body text
+        body_lines = []
+        for bullet in bullets:
+            body_lines.append(f"• {bullet}")
+        if notes:
+            body_lines.append("")
+            body_lines.append(f"Notes: {notes}")
+
+        sections.append({
+            "title": title,
+            "subtitle": None,
+            "body": "\n".join(body_lines)
+        })
+
+    # Add commander guidance as a section
+    guidance = phase_result.get("guidance", {})
+    if guidance:
+        guidance_text = guidance.get("guidance_text", "")
+        priority_tasks = guidance.get("priority_tasks", [])
+
+        body_parts = []
+        if guidance_text:
+            body_parts.append(guidance_text)
+        if priority_tasks:
+            body_parts.append("\nPriority Tasks:")
+            for task in priority_tasks:
+                body_parts.append(f"• {task}")
+
+        if body_parts:
+            sections.append({
+                "title": "Commander's Guidance",
+                "subtitle": "Direction for Next Phase",
+                "body": "\n".join(body_parts)
+            })
+
+    return sections
+
+
+def generate_and_store_phase_pdfs(
+    phase_name: str,
+    phase_result: PhaseResult,
+    op_name: str = "Operation WARGATE",
+    classification: str = "UNCLASSIFIED // FOR EXERCISE PURPOSES ONLY"
+) -> dict[str, BytesIO]:
+    """
+    Generate both PDFs for a phase and store them in session state.
+
+    Called immediately after a phase completes, BEFORE moving to the next phase.
+    This ensures PDFs are available even if later phases fail.
+
+    Args:
+        phase_name: The JPPPhase.name (e.g., "MISSION_ANALYSIS")
+        phase_result: The PhaseResult from the orchestrator
+        op_name: Operation name for PDF headers
+        classification: Classification marking
+
+    Returns:
+        Dict with "slides" and "transcript" BytesIO buffers
+
+    Session State:
+        Stores in st.session_state["phase_pdfs"][phase_id] = {
+            "slides": BytesIO,
+            "transcript": BytesIO,
+            "generated_at": datetime
+        }
+    """
+    # Initialize phase_pdfs storage if needed
+    if "phase_pdfs" not in st.session_state:
+        st.session_state["phase_pdfs"] = {}
+
+    # Get phase ID
+    phase_id = PHASE_ID_MAP.get(phase_name, phase_name.lower())
+    phase_display = phase_result.get("phase_name", phase_name.replace("_", " ").title())
+    phase_num = {
+        "PLANNING_INITIATION": 1,
+        "MISSION_ANALYSIS": 2,
+        "COA_DEVELOPMENT": 3,
+        "COA_ANALYSIS": 4,
+        "COA_COMPARISON": 5,
+        "COA_APPROVAL": 6,
+        "PLAN_DEVELOPMENT": 7,
+    }.get(phase_name, 1)
+    phase_label = f"Step {phase_num}: {phase_display}"
+
+    # Extract sections from phase result
+    sections = extract_sections_from_phase_result(phase_result)
+
+    # Build slide/report PDF
+    slides_pdf = build_phase_pdf(
+        op_name=op_name,
+        phase_label=phase_label,
+        classification=classification,
+        sections=sections
+    )
+
+    # Combine all dialogue turns for transcript
+    all_turns: list[DialogueTurn] = []
+
+    # Staff meeting turns
+    meeting = phase_result.get("meeting", {})
+    meeting_turns = meeting.get("turns", [])
+    all_turns.extend(meeting_turns)
+
+    # Brief turns
+    brief = phase_result.get("brief", {})
+    brief_turns = brief.get("turns", [])
+    all_turns.extend(brief_turns)
+
+    # Build transcript PDF
+    transcript_pdf = build_transcript_pdf(
+        op_name=op_name,
+        phase_label=phase_label,
+        classification=classification,
+        turns=all_turns
+    )
+
+    # Store in session state - WILL NOT BE WIPED by later errors
+    st.session_state["phase_pdfs"][phase_id] = {
+        "slides": slides_pdf,
+        "transcript": transcript_pdf,
+        "phase_name": phase_display,
+        "phase_num": phase_num,
+        "generated_at": datetime.now(),
+        "turn_count": len(all_turns),
+        "section_count": len(sections),
+    }
+
+    return {
+        "slides": slides_pdf,
+        "transcript": transcript_pdf,
+    }
+
+
+def render_phase_pdf_downloads(phase_name: str) -> None:
+    """
+    Render download buttons for a phase's PDFs if available.
+
+    This should be called in render_phase_section for each completed phase.
+    Shows two buttons: Slide Report and Transcript.
+
+    Args:
+        phase_name: The JPPPhase.name (e.g., "MISSION_ANALYSIS")
+    """
+    phase_id = PHASE_ID_MAP.get(phase_name, phase_name.lower())
+    phase_store = st.session_state.get("phase_pdfs", {})
+    phase_data = phase_store.get(phase_id)
+
+    if not phase_data:
+        return
+
+    phase_display = phase_data.get("phase_name", phase_name.replace("_", " ").title())
+    phase_num = phase_data.get("phase_num", 1)
+    turn_count = phase_data.get("turn_count", 0)
+    section_count = phase_data.get("section_count", 0)
+
+    st.markdown("---")
+    st.markdown("#### 📄 Phase Documents")
+    st.caption(f"Generated with {section_count} sections and {turn_count} dialogue turns")
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        # Need to reset buffer position before download
+        slides_buffer = phase_data["slides"]
+        slides_buffer.seek(0)
+
+        st.download_button(
+            label=f"📊 Download {phase_display} Report (PDF)",
+            data=slides_buffer,
+            file_name=f"wargate_step{phase_num}_{phase_name.lower()}_report.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+
+    with col2:
+        # Need to reset buffer position before download
+        transcript_buffer = phase_data["transcript"]
+        transcript_buffer.seek(0)
+
+        st.download_button(
+            label=f"📝 Download {phase_display} Transcript (PDF)",
+            data=transcript_buffer,
+            file_name=f"wargate_step{phase_num}_{phase_name.lower()}_transcript.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+        )
+
+
+# =============================================================================
 # JPP PHASE DEFINITIONS
 # =============================================================================
 
@@ -1816,6 +2363,10 @@ def render_phase_section(
                         output["guidance"],
                         is_commander=True
                     )
+
+            # PDF Download Section - always at the end of tabs
+            # Shows two buttons: Report PDF and Transcript PDF
+            render_phase_pdf_downloads(phase.name)
 
         elif is_current:
             st.info("🔄 This phase is currently being processed...")
@@ -2290,8 +2841,21 @@ def run_single_phase_interactive(phase: JPPPhase, scenario: str) -> bool:
             st.session_state.phase_outputs[phase.name] = legacy_output
             st.session_state.phase_results[phase.name] = phase_result
 
-            with status_container:
-                st.success(f"{phase_info['name']} complete!")
+            # IMMEDIATELY generate and store PDFs - error resilient
+            # These will persist even if later phases fail
+            try:
+                pdf_result = generate_and_store_phase_pdfs(
+                    phase_name=phase.name,
+                    phase_result=phase_result,
+                    op_name="Operation WARGATE",
+                    classification="UNCLASSIFIED // FOR EXERCISE PURPOSES ONLY"
+                )
+                with status_container:
+                    st.success(f"{phase_info['name']} complete! PDFs generated.")
+            except Exception as pdf_error:
+                # PDF generation failure should NOT block phase completion
+                with status_container:
+                    st.warning(f"{phase_info['name']} complete. PDF generation failed: {pdf_error}")
 
             st.session_state.is_running = False
             return True
@@ -2357,8 +2921,22 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                 legacy_output = convert_phase_result_to_legacy_format(phase_result)
                 st.session_state.phase_outputs[phase.name] = legacy_output
                 st.session_state.phase_results[phase.name] = phase_result
+
+                # IMMEDIATELY generate and store PDFs - error resilient
+                # These will persist in session state even if later phases fail
+                try:
+                    generate_and_store_phase_pdfs(
+                        phase_name=phase.name,
+                        phase_result=phase_result,
+                        op_name="Operation WARGATE",
+                        classification="UNCLASSIFIED // FOR EXERCISE PURPOSES ONLY"
+                    )
+                except Exception as pdf_error:
+                    # Log but don't stop - PDFs are secondary to phase completion
+                    st.warning(f"PDF generation for {phase_info['name']} failed: {pdf_error}")
             else:
                 st.error(f"Phase {phase_info['name']} failed. Stopping.")
+                # Note: Previously completed phases' PDFs are still in session state
                 st.session_state.is_running = False
                 return False
 
