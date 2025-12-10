@@ -13,6 +13,12 @@ openai>=1.40.0
 # Pydantic for data models
 pydantic>=2.0.0
 
+# Streamlit Web UI
+streamlit>=1.30.0
+
+# PDF Generation
+fpdf2>=2.7.0
+
 # Optional: For future RAG implementation
 # chromadb>=0.4.0
 # faiss-cpu>=1.7.0
