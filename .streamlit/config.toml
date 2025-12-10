@@ -1,6 +1,9 @@
 [theme]
 primaryColor = "#6A0DAD"
-backgroundColor = "#FFFFFF"
-secondaryBackgroundColor = "#101018"
-textColor = "#FFFFFF"
+backgroundColor = "#1A1A2E"
+secondaryBackgroundColor = "#16213E"
+textColor = "#EAEAEA"
 font = "sans serif"
+
+# Sidebar theme (to fix "Invalid color" warnings)
+# Note: Streamlit will use these for sidebar styling
