@@ -1095,11 +1095,21 @@ section[data-testid="stSidebar"] hr {
     margin: 0.5rem 0;
 }
 
-/* Commander bubble - special styling */
+/* Commander bubble - special styling (dark theme) */
 .dialogue-bubble.commander {
-    background-color: #f8f4ff;
+    background-color: #1b1026;
     border-left-color: var(--accent-gold);
     border-left-width: 6px;
+}
+
+/* Ensure commander text is always readable on dark background */
+.dialogue-bubble.commander .dialogue-content,
+.dialogue-bubble.commander .dialogue-content p,
+.dialogue-bubble.commander .dialogue-header,
+.dialogue-bubble.commander .dialogue-rank,
+.dialogue-bubble.commander .dialogue-role,
+.dialogue-bubble.commander span {
+    color: #f5f5f5 !important;
 }
 
 .dialogue-badge.commander {
@@ -3753,6 +3763,9 @@ def run_phase_with_live_dialogue(
     status_container,
     banner_container=None,
     micro_progress_container=None,
+    terminal_container=None,
+    base_progress: float = 0.0,
+    phase_weight: float = 1.0,
 ) -> PhaseResult | None:
     """
     Execute a single JPP phase with live incremental dialogue rendering.
@@ -3763,6 +3776,7 @@ def run_phase_with_live_dialogue(
     - Micro-progress indicators while generating
     - Typing indicators before each new speaker
     - Automatic transcript archiving
+    - Live mission status percentage updates
 
     Args:
         phase: The JPP phase to execute
@@ -3771,6 +3785,9 @@ def run_phase_with_live_dialogue(
         status_container: Streamlit container for status messages
         banner_container: Optional container for phase banner
         micro_progress_container: Optional container for micro-progress messages
+        terminal_container: Optional container for mission status terminal
+        base_progress: Starting progress for this phase (0.0-1.0)
+        phase_weight: Weight of this phase in total progress (e.g., 1/7 = 0.143)
 
     Returns:
         PhaseResult with all phase outputs, or None on error
@@ -3790,6 +3807,29 @@ def run_phase_with_live_dialogue(
     live_turns: list[DialogueTurn] = []
     current_substep = 'a'
     is_first_turn_in_substep = True
+
+    # Substep weights for progress calculation (a=50%, b=15%, c=25%, d=10%)
+    substep_weights = {'a': 0.50, 'b': 0.15, 'c': 0.25, 'd': 0.10}
+    substep_start = {'a': 0.0, 'b': 0.50, 'c': 0.65, 'd': 0.90}
+
+    def update_terminal_progress(substep: str, micro_progress: float, status_msg: str):
+        """Update the mission terminal with current progress."""
+        if terminal_container:
+            # Calculate progress within this phase
+            substep_base = substep_start.get(substep, 0.0)
+            substep_w = substep_weights.get(substep, 0.25)
+            phase_progress = substep_base + (micro_progress * substep_w)
+
+            # Scale to overall progress
+            overall_progress = base_progress + (phase_progress * phase_weight)
+
+            render_mission_status(
+                terminal_container,
+                overall_progress,
+                status_msg,
+                phase_name=phase.name,
+                substep=substep,
+            )
 
     def on_turn_callback(turn: DialogueTurn):
         """Called for each dialogue turn - renders with typing indicator animation."""
@@ -3859,21 +3899,28 @@ def run_phase_with_live_dialogue(
             with banner_container:
                 render_current_phase_banner(phase.value, phase_info['name'], substep)
 
+        # Update mission terminal with substep progress
+        substep_names = {'a': 'Staff Meeting', 'b': 'Slide Generation', 'c': 'Commander Brief', 'd': 'Commander Guidance'}
+        update_terminal_progress(substep, 0.0, f"Starting {substep_names.get(substep, substep)}...")
+
     try:
         # Clear live turns for this phase
         live_turns = []
         st.session_state.live_turns = []
 
         # Show initial micro-progress messages while waiting for dialogue to start
-        if micro_progress_container:
-            messages = MICRO_PROGRESS_MESSAGES.get(phase.name, [
-                "Coordinating staff inputs...",
-                "Synchronizing analysis...",
-            ])
-            # Show first 2 micro-progress messages quickly
-            for msg in messages[:2]:
+        messages = MICRO_PROGRESS_MESSAGES.get(phase.name, [
+            "Coordinating staff inputs...",
+            "Synchronizing analysis...",
+        ])
+        num_messages = min(len(messages), 3)  # Show up to 3 micro-progress messages
+        for i, msg in enumerate(messages[:num_messages]):
+            micro_ratio = (i + 1) / (num_messages + 1)  # Progress within prep phase
+            if micro_progress_container:
                 render_micro_progress_message(micro_progress_container, msg)
-                time.sleep(1.5)
+            # Update terminal with micro-progress
+            update_terminal_progress('a', micro_ratio * 0.3, msg)  # First 30% of substep a
+            time.sleep(1.5)
 
         # Show initial banner
         if banner_container:
@@ -4004,11 +4051,20 @@ def run_single_phase_interactive(phase: JPPPhase, scenario: str) -> bool:
                     phase_result=phase_result,
                 )
                 if saved_files:
+                    # Show saved file paths in sidebar for verification
+                    with st.sidebar:
+                        st.success(f"Text logs saved for {phase_info['name']}:")
+                        for substep, filepath in saved_files.items():
+                            st.caption(f"  {substep}: {filepath.resolve()}")
                     with status_container:
                         st.success(f"{phase_info['name']} complete! Text logs saved to wargate_logs/")
+                else:
+                    with status_container:
+                        st.warning(f"{phase_info['name']} complete but no text logs were generated.")
             except Exception as log_error:
                 with status_container:
                     st.warning(f"{phase_info['name']} complete. Text log saving failed: {log_error}")
+                st.exception(log_error)  # Show full traceback for debugging
 
             # Also generate PDFs (optional, secondary to text logs)
             try:
@@ -4082,6 +4138,7 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
             st.session_state.live_turns = []
 
             # Run the phase with all enhanced features
+            # Pass terminal container for live progress updates during phase execution
             phase_result = run_phase_with_live_dialogue(
                 phase=phase,
                 scenario=scenario,
@@ -4089,6 +4146,9 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                 status_container=status_container,
                 banner_container=banner_container,
                 micro_progress_container=micro_progress_container,
+                terminal_container=terminal_container,
+                base_progress=idx / total_phases,
+                phase_weight=1.0 / total_phases,
             )
 
             if phase_result:
@@ -4117,12 +4177,16 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                         phase_name=phase.name,
                         phase_result=phase_result,
                     )
-                    # Log saved files to console for debugging
+                    # Show saved file paths in sidebar for verification
                     if saved_files:
-                        for substep, path in saved_files.items():
-                            print(f"  Saved: {path}")
+                        with st.sidebar:
+                            st.success(f"Text logs saved for {phase_info['name']}:")
+                            for substep, filepath in saved_files.items():
+                                st.caption(f"  {substep}: {filepath.resolve()}")
+                                print(f"  Saved: {filepath.resolve()}")  # Also log to console
                 except Exception as log_error:
                     st.warning(f"Text log saving for {phase_info['name']} failed: {log_error}")
+                    st.exception(log_error)  # Show full traceback
 
                 # Also generate PDFs (optional, secondary to text logs)
                 try:
