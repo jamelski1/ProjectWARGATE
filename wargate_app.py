@@ -84,7 +84,7 @@ class WARGATEReportPDF(FPDF):
         self.set_font("Helvetica", "", 10)
         self.set_text_color(0, 0, 0)
 
-        # Clean and process the text
+        # Clean and process the text first
         text = self._clean_text(text)
 
         # Split into paragraphs and process
@@ -114,15 +114,15 @@ class WARGATEReportPDF(FPDF):
                     if not line:
                         continue
 
-                    # Handle bullet points
+                    # Handle bullet points - use calculated width, not 0
+                    # Page width is 210mm (A4), with 10mm margins = 190mm usable
                     if line.startswith(("- ", "* ", "• ")):
-                        self.set_x(15)
-                        self.multi_cell(0, 5, "• " + line[2:])
+                        bullet_text = "  * " + line[2:]
+                        self.multi_cell(190, 5, bullet_text)
                     elif re.match(r"^\d+\.", line):
-                        self.set_x(15)
-                        self.multi_cell(0, 5, line)
+                        self.multi_cell(190, 5, "  " + line)
                     else:
-                        self.multi_cell(0, 5, line)
+                        self.multi_cell(190, 5, line)
 
                 self.ln(3)
 
