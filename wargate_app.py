@@ -12,6 +12,16 @@ Requirements:
 Environment:
     export OPENAI_API_KEY="your-api-key"
 
+Image Files:
+    Place the following images in the ./assets/ folder (or root directory):
+    - Cyber National Mission Force.png
+    - Seal_of_the_United_States_Cyber_Command.svg.png
+    - Joint_Chiefs_of_Staff_seal_(2).svg - Copy.png
+    - DoW.png
+    - DoAF.png
+    - DoN.avif
+    - Emblem_of_the_U.S._Department_of_the_Army.svg.png
+
 Author: Project WARGATE Team
 """
 
@@ -20,12 +30,49 @@ import re
 import streamlit as st
 from io import BytesIO
 from datetime import datetime
+from pathlib import Path
 
 # PDF generation
 from fpdf import FPDF
 
 # Import the structured backend
 from wargate_backend import run_joint_staff_planning_structured, PlanningResult
+
+
+# =============================================================================
+# ASSET PATHS
+# =============================================================================
+
+def get_asset_path(filename: str) -> str | None:
+    """
+    Find an asset file in either the assets folder or root directory.
+    Returns the path if found, None otherwise.
+    """
+    # Check assets folder first
+    assets_path = Path("assets") / filename
+    if assets_path.exists():
+        return str(assets_path)
+
+    # Check root directory
+    root_path = Path(filename)
+    if root_path.exists():
+        return str(root_path)
+
+    return None
+
+
+# Logo filenames
+LOGO_FILES = [
+    "Cyber National Mission Force.png",
+    "Seal_of_the_United_States_Cyber_Command.svg.png",
+    "Joint_Chiefs_of_Staff_seal_(2).svg - Copy.png",
+    "DoW.png",
+    "DoAF.png",
+    "DoN.avif",
+    "Emblem_of_the_U.S._Department_of_the_Army.svg.png",
+]
+
+SIDEBAR_LOGO = "Joint_Chiefs_of_Staff_seal_(2).svg - Copy.png"
 
 
 # =============================================================================
@@ -59,16 +106,16 @@ class WARGATEReportPDF(FPDF):
     def add_title(self, title: str):
         """Add a main title to the document."""
         self.set_font("Helvetica", "B", 18)
-        self.set_text_color(0, 51, 102)
+        self.set_text_color(106, 13, 173)  # Joint purple
         self.cell(0, 15, title, ln=True, align="C")
         self.ln(5)
 
     def add_section_header(self, header: str):
         """Add a section header."""
         self.set_font("Helvetica", "B", 14)
-        self.set_text_color(0, 51, 102)
+        self.set_text_color(106, 13, 173)  # Joint purple
         self.cell(0, 10, header, ln=True)
-        self.set_draw_color(0, 51, 102)
+        self.set_draw_color(106, 13, 173)
         self.line(10, self.get_y(), 200, self.get_y())
         self.ln(5)
 
@@ -201,7 +248,7 @@ def generate_full_report_pdf(result: PlanningResult, scenario: str) -> BytesIO:
 
     # Title page
     pdf.set_font("Helvetica", "B", 24)
-    pdf.set_text_color(0, 51, 102)
+    pdf.set_text_color(106, 13, 173)  # Joint purple
     pdf.ln(40)
     pdf.cell(0, 20, "PROJECT WARGATE", ln=True, align="C")
     pdf.set_font("Helvetica", "", 16)
@@ -224,17 +271,17 @@ def generate_full_report_pdf(result: PlanningResult, scenario: str) -> BytesIO:
 
     # COA Development
     pdf.add_page()
-    pdf.add_section_header("COA Development (J5/J3)")
+    pdf.add_section_header("J5/J3 - COA Development")
     pdf.add_body_text(result["coa_development"])
 
     # Staff Estimates
     pdf.add_page()
-    pdf.add_section_header("Functional Staff Estimates")
+    pdf.add_section_header("Functional Staff Estimates (J1/J4/J6/Cyber/Fires/ENG/Protection)")
     pdf.add_body_text(result["staff_estimates"])
 
     # Legal/Ethics
     pdf.add_page()
-    pdf.add_section_header("Legal & Ethics Review (SJA)")
+    pdf.add_section_header("SJA - Legal & Ethics Review")
     pdf.add_body_text(result["legal_ethics"])
 
     # Commander's Brief
@@ -269,21 +316,45 @@ def init_session_state():
         st.session_state.progress = 0.0
 
 
+def render_logo_strip():
+    """Render the horizontal logo strip at the top of the page."""
+    # Create columns for logos
+    cols = st.columns(len(LOGO_FILES))
+
+    for i, (col, logo_file) in enumerate(zip(cols, LOGO_FILES)):
+        with col:
+            logo_path = get_asset_path(logo_file)
+            if logo_path:
+                st.image(logo_path, use_container_width=True)
+            else:
+                # Placeholder if image not found
+                st.caption(f"[{logo_file.split('.')[0][:10]}...]")
+
+    # Horizontal rule below logos
+    st.markdown("---")
+
+
 def render_sidebar():
     """Render the sidebar with controls."""
     with st.sidebar:
-        st.image("https://img.icons8.com/color/96/military-helicopter.png", width=80)
-        st.title("🎖️ WARGATE Controls")
+        # Sidebar logo - Joint Chiefs of Staff seal
+        sidebar_logo_path = get_asset_path(SIDEBAR_LOGO)
+        if sidebar_logo_path:
+            st.image(sidebar_logo_path, use_container_width=True)
+        else:
+            st.markdown("### Joint Chiefs of Staff")
+
+        st.title("WARGATE Controls")
 
         st.markdown("---")
 
         # Model configuration
-        st.subheader("⚙️ Model Settings")
+        st.subheader("Model Settings")
 
         model_name = st.text_input(
             "Model Name",
-            value="gpt-4o",
-            help="OpenAI model to use (e.g., gpt-4o, gpt-4-turbo, gpt-3.5-turbo)"
+            value="gpt-4.1",
+            help="OpenAI model to use (e.g., gpt-4.1, gpt-4o, gpt-4-turbo)"
         )
 
         temperature = st.slider(
@@ -306,7 +377,7 @@ def render_sidebar():
         st.markdown("---")
 
         # Scenario input
-        st.subheader("📋 Scenario Input")
+        st.subheader("Scenario Input")
 
         input_method = st.radio(
             "Input Method",
@@ -340,14 +411,14 @@ def render_sidebar():
 
         with col1:
             run_clicked = st.button(
-                "🚀 Run Planning",
+                "Run Planning",
                 type="primary",
                 disabled=st.session_state.is_running,
                 use_container_width=True
             )
 
         with col2:
-            if st.button("🔄 Clear", use_container_width=True):
+            if st.button("Clear", use_container_width=True):
                 st.session_state.planning_result = None
                 st.session_state.scenario_text = ""
                 st.rerun()
@@ -356,9 +427,9 @@ def render_sidebar():
         st.markdown("---")
         api_key = os.environ.get("OPENAI_API_KEY", "")
         if api_key:
-            st.success("✅ API Key configured")
+            st.success("API Key configured")
         else:
-            st.error("❌ OPENAI_API_KEY not set")
+            st.error("OPENAI_API_KEY not set")
             st.caption("Set via: `export OPENAI_API_KEY='...'`")
 
         return {
@@ -373,7 +444,7 @@ def render_sidebar():
 def render_welcome():
     """Render the welcome/landing page."""
     st.markdown("""
-    ## 🎯 Welcome to Project WARGATE
+    ## Welcome to Project WARGATE
 
     **WARGATE** (War Gaming and Analysis for Responsive Tactical Engagement) is a
     multi-agent AI system that simulates joint military staff planning processes.
@@ -438,34 +509,34 @@ def render_results(result: PlanningResult, scenario: str):
 
     st.markdown("---")
 
-    # Tabs for each phase
+    # Tabs for each phase - JPP-aligned names
     tabs = st.tabs([
-        "📊 J2 Intel",
-        "🎯 COA Development",
-        "📋 Staff Estimates",
-        "⚖️ Legal & Ethics",
-        "🎖️ Commander's Brief",
-        "📄 Full Report"
+        "J2 – Intelligence Estimate",
+        "J5/J3 – COA Development",
+        "Functional Staff Estimates (J1/J4/J6/Cyber/Fires/ENG/Protection)",
+        "SJA – Legal & Ethics Review",
+        "Commander's Brief",
+        "Full Joint Planning Report"
     ])
 
     # J2 Intel Tab
     with tabs[0]:
-        st.header("J2 - Intelligence Estimate")
+        st.subheader("J2 – Intelligence Estimate")
         st.markdown("""
         The J2 (Intelligence) provides the threat assessment, enemy courses of action,
         and intelligence gaps that inform the planning process.
         """)
 
-        with st.expander("📖 View Full Intelligence Estimate", expanded=True):
+        with st.expander("View Full Intelligence Estimate", expanded=True):
             st.markdown(result["intel_estimate"])
 
         pdf_buffer = generate_pdf_from_text(
-            "J2 Intelligence Estimate",
+            "J2 - Intelligence Estimate",
             result["intel_estimate"],
             include_scenario=scenario
         )
         st.download_button(
-            label="📥 Download J2 Intel PDF",
+            label="Download J2 Intel PDF",
             data=pdf_buffer,
             file_name="j2_intel_estimate.pdf",
             mime="application/pdf"
@@ -473,22 +544,22 @@ def render_results(result: PlanningResult, scenario: str):
 
     # COA Development Tab
     with tabs[1]:
-        st.header("COA Development (J5/J3)")
+        st.subheader("J5/J3 – COA Development")
         st.markdown("""
         The J5 (Plans) develops strategic approaches, while J3 (Operations)
         refines them into executable courses of action with detailed phasing.
         """)
 
-        with st.expander("📖 View COA Development", expanded=True):
+        with st.expander("View COA Development", expanded=True):
             st.markdown(result["coa_development"])
 
         pdf_buffer = generate_pdf_from_text(
-            "COA Development",
+            "J5/J3 - COA Development",
             result["coa_development"],
             include_scenario=scenario
         )
         st.download_button(
-            label="📥 Download COA PDF",
+            label="Download COA PDF",
             data=pdf_buffer,
             file_name="coa_development.pdf",
             mime="application/pdf"
@@ -496,13 +567,13 @@ def render_results(result: PlanningResult, scenario: str):
 
     # Staff Estimates Tab
     with tabs[2]:
-        st.header("Functional Staff Estimates")
+        st.subheader("Functional Staff Estimates (J1/J4/J6/Cyber/Fires/ENG/Protection)")
         st.markdown("""
         Each functional staff section provides their assessment of feasibility,
         risks, and requirements for the proposed courses of action.
         """)
 
-        with st.expander("📖 View Staff Estimates", expanded=True):
+        with st.expander("View Staff Estimates", expanded=True):
             st.markdown(result["staff_estimates"])
 
         pdf_buffer = generate_pdf_from_text(
@@ -511,7 +582,7 @@ def render_results(result: PlanningResult, scenario: str):
             include_scenario=scenario
         )
         st.download_button(
-            label="📥 Download Staff Estimates PDF",
+            label="Download Staff Estimates PDF",
             data=pdf_buffer,
             file_name="staff_estimates.pdf",
             mime="application/pdf"
@@ -519,22 +590,22 @@ def render_results(result: PlanningResult, scenario: str):
 
     # Legal & Ethics Tab
     with tabs[3]:
-        st.header("Legal & Ethics Review (SJA)")
+        st.subheader("SJA – Legal & Ethics Review")
         st.markdown("""
         The Staff Judge Advocate reviews all courses of action for compliance
         with law of armed conflict, rules of engagement, and ethical considerations.
         """)
 
-        with st.expander("📖 View Legal/Ethics Review", expanded=True):
+        with st.expander("View Legal/Ethics Review", expanded=True):
             st.markdown(result["legal_ethics"])
 
         pdf_buffer = generate_pdf_from_text(
-            "Legal and Ethics Review",
+            "SJA - Legal and Ethics Review",
             result["legal_ethics"],
             include_scenario=scenario
         )
         st.download_button(
-            label="📥 Download Legal Review PDF",
+            label="Download Legal Review PDF",
             data=pdf_buffer,
             file_name="legal_ethics_review.pdf",
             mime="application/pdf"
@@ -542,13 +613,13 @@ def render_results(result: PlanningResult, scenario: str):
 
     # Commander's Brief Tab
     with tabs[4]:
-        st.header("Commander's Brief")
+        st.subheader("Commander's Brief")
         st.markdown("""
         The synthesis of all staff inputs into the commander's decision products:
         COA comparison, recommended COA, and Commander's Intent.
         """)
 
-        with st.expander("📖 View Commander's Brief", expanded=True):
+        with st.expander("View Commander's Brief", expanded=True):
             st.markdown(result["commander_brief"])
 
         pdf_buffer = generate_pdf_from_text(
@@ -557,7 +628,7 @@ def render_results(result: PlanningResult, scenario: str):
             include_scenario=scenario
         )
         st.download_button(
-            label="📥 Download Commander's Brief PDF",
+            label="Download Commander's Brief PDF",
             data=pdf_buffer,
             file_name="commanders_brief.pdf",
             mime="application/pdf"
@@ -565,19 +636,19 @@ def render_results(result: PlanningResult, scenario: str):
 
     # Full Report Tab
     with tabs[5]:
-        st.header("Full Planning Product")
+        st.subheader("Full Joint Planning Report")
         st.markdown("""
         The complete, concatenated planning product containing all phases
         and supporting analysis.
         """)
 
-        with st.expander("📖 View Full Report", expanded=False):
+        with st.expander("View Full Report", expanded=False):
             st.text(result["full_report"])
 
         # Full report PDF
         pdf_buffer = generate_full_report_pdf(result, scenario)
         st.download_button(
-            label="📥 Download Complete Report PDF",
+            label="Download Complete Report PDF",
             data=pdf_buffer,
             file_name="wargate_full_report.pdf",
             mime="application/pdf",
@@ -594,7 +665,7 @@ def run_planning_with_progress(scenario: str, model_name: str, temperature: floa
     def update_progress(step_name: str, step_num: int, total_steps: int):
         progress = step_num / total_steps
         progress_bar.progress(progress, text=f"Step {step_num}/{total_steps}: {step_name}")
-        status_text.info(f"🔄 Processing: {step_name}...")
+        status_text.info(f"Processing: {step_name}...")
 
     try:
         result = run_joint_staff_planning_structured(
@@ -607,13 +678,13 @@ def run_planning_with_progress(scenario: str, model_name: str, temperature: floa
         )
 
         progress_bar.progress(1.0, text="Complete!")
-        status_text.success("✅ Planning complete!")
+        status_text.success("Planning complete!")
 
         return result
 
     except Exception as e:
         progress_bar.empty()
-        status_text.error(f"❌ Error: {str(e)}")
+        status_text.error(f"Error: {str(e)}")
         st.exception(e)
         return None
 
@@ -623,30 +694,96 @@ def main():
 
     # Page configuration
     st.set_page_config(
-        page_title="Project WARGATE",
-        page_icon="🎖️",
+        page_title="Project WARGATE - Joint Staff Planning",
+        page_icon="🛡️",
         layout="wide",
         initial_sidebar_state="expanded"
     )
 
-    # Custom CSS
+    # Custom CSS for Joint Staff theme
     st.markdown("""
     <style>
+    /* Main theme overrides */
+    .stApp {
+        background-color: #FFFFFF;
+    }
+
+    /* Tab styling - Joint purple theme */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
+        gap: 4px;
+        background-color: #101018;
+        padding: 10px;
+        border-radius: 8px;
     }
     .stTabs [data-baseweb="tab"] {
-        padding: 10px 20px;
-        background-color: #f0f2f6;
+        padding: 10px 16px;
+        background-color: #1a1a2e;
         border-radius: 5px;
+        color: #FFFFFF;
+        font-weight: 500;
     }
     .stTabs [aria-selected="true"] {
-        background-color: #1f77b4;
-        color: white;
+        background-color: #6A0DAD;
+        color: #FFFFFF;
     }
+    .stTabs [data-baseweb="tab"]:hover {
+        background-color: #4a0a7a;
+    }
+
+    /* Expander styling */
     .stExpander {
         background-color: #f8f9fa;
-        border-radius: 5px;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+    }
+
+    /* Metrics styling */
+    [data-testid="stMetricValue"] {
+        color: #6A0DAD;
+        font-weight: bold;
+    }
+
+    /* Button styling */
+    .stButton > button[kind="primary"] {
+        background-color: #6A0DAD;
+        border-color: #6A0DAD;
+    }
+    .stButton > button[kind="primary"]:hover {
+        background-color: #4a0a7a;
+        border-color: #4a0a7a;
+    }
+
+    /* Download button styling */
+    .stDownloadButton > button {
+        background-color: #101018;
+        color: #FFFFFF;
+        border: 1px solid #6A0DAD;
+    }
+    .stDownloadButton > button:hover {
+        background-color: #6A0DAD;
+        border-color: #6A0DAD;
+    }
+
+    /* Header styling */
+    h1, h2, h3 {
+        color: #101018;
+    }
+
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background-color: #101018;
+    }
+    [data-testid="stSidebar"] h1,
+    [data-testid="stSidebar"] h2,
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] p {
+        color: #FFFFFF;
+    }
+
+    /* Progress bar */
+    .stProgress > div > div {
+        background-color: #6A0DAD;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -654,8 +791,11 @@ def main():
     # Initialize session state
     init_session_state()
 
+    # Render logo strip at top
+    render_logo_strip()
+
     # Header
-    st.title("🎖️ Project WARGATE")
+    st.title("Project WARGATE")
     st.caption("Joint Staff Planning Interface | Multi-Agent AI Planning System")
 
     # Render sidebar and get inputs
@@ -664,20 +804,25 @@ def main():
     # Handle run button
     if inputs["run_clicked"]:
         if not inputs["scenario"]:
-            st.warning("⚠️ Please enter a scenario before running the planning process.")
+            st.warning("Please enter a scenario before running the planning process.")
         elif not os.environ.get("OPENAI_API_KEY"):
-            st.error("❌ OPENAI_API_KEY environment variable is not set.")
+            st.error("OPENAI_API_KEY environment variable is not set.")
         else:
             st.session_state.scenario_text = inputs["scenario"]
             st.session_state.is_running = True
 
-            with st.spinner("Running joint staff planning process..."):
+            with st.status("Project WARGATE is generating staff products...", expanded=True, state="running") as status:
+                st.write("Initializing joint staff agents...")
                 result = run_planning_with_progress(
                     scenario=inputs["scenario"],
                     model_name=inputs["model_name"],
                     temperature=inputs["temperature"],
                     persona_seed=inputs["persona_seed"]
                 )
+                if result:
+                    status.update(label="Planning complete!", state="complete", expanded=False)
+                else:
+                    status.update(label="Planning failed", state="error", expanded=True)
 
             st.session_state.is_running = False
 
