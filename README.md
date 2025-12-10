@@ -11,7 +11,7 @@ WARGATE implements a complete joint staff planning cell with 15 specialized AI a
 ## Features
 
 - **15 Specialized Staff Agents**: Commander, J1-J8, Cyber/EW, Fires, Engineer, Protection, SJA, and PAO
-- **Military Persona System**: Each agent can be assigned a random US military branch, rank, and name with branch-specific cultural perspectives
+- **Military Persona System**: Every agent automatically gets a unique US military branch, rank, and name with branch-specific cultural perspectives
 - **Structured Planning Flow**: J2 Intel → J5/J3 COA Dev → Staff Reviews → SJA Review → Commander Synthesis
 - **Red Team Integration**: J2 Intelligence agent challenges assumptions and war-games enemy responses
 - **RAG-Ready Architecture**: Stub tools ready for doctrine, geopolitics, logistics, and cyber intel retrievers
@@ -60,7 +60,7 @@ python wargate.py --scenario-file scenario.txt
 # Customize model and temperature
 python wargate.py -s "Scenario..." --model gpt-4.1 --temperature 0.5
 
-# Enable military personas (assigns branch/rank/name to each agent)
+# Use fixed seed for reproducible personas (same staff each run)
 python wargate.py -s "Scenario..." --persona-seed 42
 
 # Save output to file
@@ -75,18 +75,32 @@ python wargate.py -s "Scenario..." --legacy
 
 ## Military Personas
 
-Each staff agent can be assigned a random US military service branch, strategic rank (O-5 to O-10), and name. This adds branch-specific cultural perspectives to their responses.
+Every staff agent **automatically** gets a unique US military service branch, strategic rank (O-5 to O-10), and name. This adds branch-specific cultural perspectives to their responses, making each planning session feel like a distinct joint task force.
 
-### Using Personas
+### Default Behavior (Random Personas)
 
 ```python
 from wargate import run_joint_staff_planning
 
-# Enable personas with a seed for reproducibility
+# Each run creates a unique staff with different branches/ranks/names
 result = run_joint_staff_planning(
     scenario_text=scenario,
     model_name="gpt-4.1",
-    persona_seed=42,  # Same seed = same personas each time
+)
+# First run: LTG (US Army) Smith, VADM (US Navy) Jones, etc.
+# Second run: MajGen (US Marine Corps) Garcia, Col (US Air Force) Lee, etc.
+```
+
+### Reproducible Personas (Fixed Seed)
+
+```python
+from wargate import run_joint_staff_planning
+
+# Use a seed when you need the same staff across runs
+result = run_joint_staff_planning(
+    scenario_text=scenario,
+    model_name="gpt-4.1",
+    persona_seed=42,  # Same seed = same personas every time
 )
 ```
 

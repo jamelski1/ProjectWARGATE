@@ -1094,21 +1094,31 @@ def create_staff_agent(
     """
     Factory function to create a staff agent for a given role.
 
+    Every agent automatically gets a unique military persona (branch, rank, name)
+    by default. Use config.persona_seed for reproducible personas across runs.
+
     Args:
         role: The StaffRole to create an agent for
         config: WARGATEConfig with model and other settings
         custom_tools: Optional custom tools to override default role tools
-        persona: Optional explicit persona. If None and config.persona_seed is set,
-                 a persona will be auto-generated.
+        persona: Optional explicit persona. If None, auto-generated (random by
+                 default, or reproducible if config.persona_seed is set).
 
     Returns:
         Configured StaffAgent instance with military persona
 
     Example:
+        >>> # Random personas each time (default)
+        >>> config = WARGATEConfig(model_name="gpt-4.1")
+        >>> j3_agent = create_staff_agent(StaffRole.J3, config)
+        >>> print(j3_agent.persona.full_designation)
+        'Col (US Air Force) Jennifer Martinez'  # Different each run
+
+        >>> # Reproducible personas with seed
         >>> config = WARGATEConfig(model_name="gpt-4.1", persona_seed=42)
         >>> j3_agent = create_staff_agent(StaffRole.J3, config)
         >>> print(j3_agent.persona.full_designation)
-        'BG (US Army) Michael Johnson'
+        'BG (US Army) Michael Johnson'  # Same every run with seed=42
 
         # With custom tools:
         >>> my_tools = [create_rag_tool("my_retriever", "...", my_func)]
@@ -1129,8 +1139,10 @@ def create_staff_agent(
     # Use custom tools if provided, otherwise use default role tools
     tools = custom_tools if custom_tools is not None else ROLE_TOOLS.get(role, [doctrine_retriever])
 
-    # Generate persona if not provided and seed is configured
-    if persona is None and config.persona_seed is not None:
+    # Generate persona automatically by default
+    # - If seed is None: truly random persona each time
+    # - If seed is set: reproducible persona based on seed
+    if persona is None:
         persona = generate_random_branch_and_rank(role.value, seed=config.persona_seed)
 
     return StaffAgent(
@@ -1969,8 +1981,9 @@ def run_joint_staff_planning(
         verbose: Enable verbose output (default: True)
         api_key: OpenAI API key (optional, uses env var if not provided)
         persona_seed: Optional seed for reproducible military persona generation.
-                      When provided, each staff agent gets a consistent branch,
-                      rank, and name based on this seed.
+                      By default (None), each staff agent gets a unique random
+                      branch, rank, and name that varies each run. When a seed
+                      is provided, personas become reproducible across runs.
 
     Returns:
         A structured planning product string containing:
