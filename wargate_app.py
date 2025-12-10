@@ -815,6 +815,191 @@ section[data-testid="stSidebar"] hr {
 }
 
 /* =================================================================
+   MISSION TERMINAL STYLE STATUS BAR
+   ================================================================= */
+
+.mission-terminal {
+    background-color: #0a0a12;
+    border: 2px solid var(--primary-purple);
+    border-radius: 4px;
+    padding: 1rem 1.5rem;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    color: #00ff00;
+    margin: 1rem 0;
+    box-shadow: 0 0 20px rgba(106, 13, 173, 0.3), inset 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.mission-terminal-header {
+    color: var(--primary-purple-light);
+    font-size: 0.8rem;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    border-bottom: 1px solid #333;
+    padding-bottom: 0.5rem;
+}
+
+.mission-terminal-progress {
+    font-size: 1.1rem;
+    letter-spacing: 0.05em;
+    margin: 0.5rem 0;
+}
+
+.mission-terminal-progress .completed { color: #00ff00; }
+.mission-terminal-progress .remaining { color: #333; }
+.mission-terminal-progress .cursor {
+    animation: blink 1s step-end infinite;
+    color: #00ff00;
+}
+
+.mission-terminal-status {
+    color: #00ccff;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+@keyframes blink {
+    50% { opacity: 0; }
+}
+
+/* =================================================================
+   MICRO-PROGRESS STATUS MESSAGES
+   ================================================================= */
+
+.micro-progress {
+    background: linear-gradient(135deg, #0a0a12 0%, #1a1a2e 100%);
+    border-left: 3px solid var(--primary-purple);
+    padding: 0.75rem 1rem;
+    margin: 0.5rem 0;
+    font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    color: #00ccff;
+    font-size: 0.9rem;
+}
+
+.micro-progress-icon {
+    display: inline-block;
+    width: 20px;
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+.micro-progress-text {
+    color: #e0e0e0;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+/* =================================================================
+   TYPING INDICATOR ANIMATION
+   ================================================================= */
+
+.typing-indicator {
+    background-color: var(--bg-secondary);
+    border-radius: 0;
+    padding: 1rem 1.25rem;
+    margin: 0.75rem 0;
+    border-left: 4px solid var(--primary-purple);
+    opacity: 0.8;
+}
+
+.typing-indicator-content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.typing-indicator-dots {
+    display: flex;
+    gap: 4px;
+}
+
+.typing-indicator-dots span {
+    width: 8px;
+    height: 8px;
+    background-color: var(--primary-purple);
+    border-radius: 50%;
+    animation: typing-bounce 1.4s ease-in-out infinite;
+}
+
+.typing-indicator-dots span:nth-child(1) { animation-delay: 0s; }
+.typing-indicator-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-indicator-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+    30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* =================================================================
+   TRANSCRIPT ARCHIVE STYLING
+   ================================================================= */
+
+.transcript-archive {
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    margin-top: 1rem;
+}
+
+.transcript-archive-header {
+    background-color: var(--bg-tertiary);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    font-weight: 600;
+    color: var(--primary-purple);
+}
+
+.transcript-phase {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.transcript-phase:last-child {
+    border-bottom: none;
+}
+
+.transcript-phase-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.5rem;
+}
+
+.transcript-turn {
+    padding: 0.5rem 0;
+    border-top: 1px dashed var(--border-color);
+    font-size: 0.9rem;
+}
+
+.transcript-turn:first-child {
+    border-top: none;
+}
+
+.transcript-speaker {
+    color: var(--primary-purple);
+    font-weight: 600;
+}
+
+/* Enhanced dialogue scroll area with auto-scroll anchor */
+.dialogue-scroll-area {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--bg-primary);
+    scroll-behavior: smooth;
+}
+
+.dialogue-scroll-anchor {
+    height: 1px;
+    visibility: hidden;
+}
+
+/* =================================================================
    RESPONSIVE DESIGN
    ================================================================= */
 
@@ -1098,18 +1283,25 @@ def render_turns_incrementally(
     container,
     delay: float = 0.0,
     scrollable: bool = True,
+    show_typing_indicator: bool = False,
+    next_speaker: str = "",
+    next_role: str = "",
 ) -> None:
     """
     Render a list of dialogue turns into a Streamlit container.
 
     This function is used to re-render all accumulated turns after
     each new turn is added (since st.empty() replaces its contents).
+    Now supports showing a typing indicator for the next speaker.
 
     Args:
         turns: List of DialogueTurn objects to render
         container: Streamlit container (from st.empty() or st.container())
         delay: Optional delay between renders for visual effect
         scrollable: Whether to wrap in a scrollable container (default True)
+        show_typing_indicator: Whether to show "X is typing..." after turns
+        next_speaker: Name of the next speaker for typing indicator
+        next_role: Role display for the next speaker
     """
     with container:
         if scrollable:
@@ -1118,9 +1310,28 @@ def render_turns_incrementally(
         st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
         for turn in turns:
             render_dialogue_bubble_from_turn(turn)
+
+        # Show typing indicator if requested
+        if show_typing_indicator and next_speaker:
+            role_text = f" ({next_role})" if next_role else ""
+            st.markdown(f"""
+            <div class="typing-indicator">
+                <div class="typing-indicator-content">
+                    <span><strong>{next_speaker}</strong>{role_text} is typing</span>
+                    <div class="typing-indicator-dots">
+                        <span></span>
+                        <span></span>
+                        <span></span>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
         st.markdown('</div>', unsafe_allow_html=True)
 
         if scrollable:
+            # Add scroll anchor for auto-scroll
+            st.markdown('<div class="dialogue-scroll-anchor" id="scroll-anchor"></div>', unsafe_allow_html=True)
             st.markdown('</div>', unsafe_allow_html=True)
 
     if delay > 0:
@@ -1203,6 +1414,422 @@ def store_phase_transcript(phase_name: str, substep: str, turns: list[DialogueTu
 
     key = f"{phase_name}_{substep}"
     st.session_state.transcripts[key] = turns
+
+    # Also store in phase_transcripts for the archive feature
+    if "phase_transcripts" not in st.session_state:
+        st.session_state.phase_transcripts = {}
+
+    phase_key = f"{phase_name}_{substep}"
+    st.session_state.phase_transcripts[phase_key] = turns
+
+
+# =============================================================================
+# MICRO-PROGRESS INDICATORS
+# =============================================================================
+
+# Phase-specific micro-progress messages that rotate during dialogue generation
+MICRO_PROGRESS_MESSAGES: dict[str, list[str]] = {
+    "PLANNING_INITIATION": [
+        "J5 reviewing strategic guidance...",
+        "J2 preparing initial threat assessment...",
+        "J3 coordinating with component commands...",
+        "Establishing planning timeline...",
+        "Synchronizing staff inputs...",
+        "Generating dialogue...",
+    ],
+    "MISSION_ANALYSIS": [
+        "J2 preparing intelligence estimates...",
+        "J3 reviewing operational factors...",
+        "J5 drafting problem statement...",
+        "Analyzing METT-TC factors...",
+        "Developing CCIRs and PIRs...",
+        "Synchronizing staff inputs...",
+        "Generating dialogue...",
+    ],
+    "COA_DEVELOPMENT": [
+        "J5 facilitating brainstorming session...",
+        "J3 sketching initial COA concepts...",
+        "Fires OIC integrating effects...",
+        "J4 assessing sustainment requirements...",
+        "Evaluating feasibility factors...",
+        "Generating dialogue...",
+    ],
+    "COA_ANALYSIS": [
+        "J2 preparing enemy COA templates...",
+        "J3 setting up wargame framework...",
+        "Running action-reaction cycles...",
+        "Identifying decision points...",
+        "Analyzing branches and sequels...",
+        "Generating dialogue...",
+    ],
+    "COA_COMPARISON": [
+        "J5 building comparison matrix...",
+        "Evaluating COAs against criteria...",
+        "Weighing advantages and risks...",
+        "Formulating staff recommendation...",
+        "Generating dialogue...",
+    ],
+    "COA_APPROVAL": [
+        "Preparing decision brief...",
+        "Final coordination across staff...",
+        "Risk acceptance assessment...",
+        "Generating dialogue...",
+    ],
+    "PLAN_DEVELOPMENT": [
+        "J3 drafting OPORD framework...",
+        "J5 integrating annexes...",
+        "J4 finalizing sustainment annex...",
+        "Building synchronization matrix...",
+        "Final staff review...",
+        "Generating dialogue...",
+    ],
+}
+
+
+def run_micro_progress(
+    container,
+    phase_name: str,
+    delay: float = 2.0,
+    max_messages: int = 4,
+) -> None:
+    """
+    Display a sequence of short status messages in a 'mission terminal'
+    style area while background work is running.
+
+    This creates the illusion of staged progress even if the actual
+    work is a single blocking LLM call.
+
+    Args:
+        container: Streamlit container (from st.empty()) to display in
+        phase_name: The phase name key for MICRO_PROGRESS_MESSAGES
+        delay: Seconds between message updates (2-3 recommended)
+        max_messages: Maximum number of messages to show before stopping
+    """
+    messages = MICRO_PROGRESS_MESSAGES.get(phase_name, [
+        "Coordinating staff inputs...",
+        "Synchronizing analysis...",
+        "Generating dialogue...",
+    ])
+
+    for i, message in enumerate(messages[:max_messages]):
+        with container:
+            html = f"""
+            <div class="micro-progress">
+                <span class="micro-progress-icon">▶</span>
+                <span class="micro-progress-text">{message}</span>
+            </div>
+            """
+            st.markdown(html, unsafe_allow_html=True)
+        time.sleep(delay if i < len(messages) - 1 else 1.0)
+
+
+def render_micro_progress_message(container, message: str) -> None:
+    """
+    Render a single micro-progress status message.
+
+    Args:
+        container: Streamlit container to display in
+        message: The status message to show
+    """
+    with container:
+        html = f"""
+        <div class="micro-progress">
+            <span class="micro-progress-icon">▶</span>
+            <span class="micro-progress-text">{message}</span>
+        </div>
+        """
+        st.markdown(html, unsafe_allow_html=True)
+
+
+# =============================================================================
+# MISSION TERMINAL STYLE STATUS BAR
+# =============================================================================
+
+def render_mission_status(
+    container,
+    bar_fraction: float,
+    message: str,
+    phase_name: str = "",
+    substep: str = "",
+) -> None:
+    """
+    Render a terminal-like status bar using block characters to indicate progress.
+
+    This replaces the generic Streamlit progress bar with a more thematic
+    mission-terminal aesthetic.
+
+    Args:
+        container: Streamlit container to render in
+        bar_fraction: Progress fraction from 0.0 to 1.0
+        message: Current status message (e.g., "Generating Joint COA Matrix...")
+        phase_name: Optional phase name for header
+        substep: Optional substep indicator (a, b, c, d)
+
+    Example output:
+        [ ████████▒▒▒▒▒▒▒▒ ] 45% | Generating Joint COA Matrix...
+    """
+    # Calculate bar segments
+    total_segments = 20
+    completed = int(bar_fraction * total_segments)
+    remaining = total_segments - completed
+
+    # Build ASCII progress bar
+    completed_chars = "█" * completed
+    remaining_chars = "░" * remaining
+    percentage = int(bar_fraction * 100)
+
+    # Build header
+    header_parts = ["WARGATE MISSION STATUS"]
+    if phase_name:
+        header_parts.append(f"// PHASE: {phase_name.replace('_', ' ')}")
+    if substep:
+        substep_names = {'a': 'STAFF MTG', 'b': 'SLIDES', 'c': 'CDR BRIEF', 'd': 'GUIDANCE'}
+        header_parts.append(f"// {substep_names.get(substep, substep.upper())}")
+
+    header = " ".join(header_parts)
+
+    with container:
+        html = f"""
+        <div class="mission-terminal">
+            <div class="mission-terminal-header">{header}</div>
+            <div class="mission-terminal-progress">
+                [ <span class="completed">{completed_chars}</span><span class="remaining">{remaining_chars}</span> ]
+                <span class="cursor">_</span> {percentage}%
+            </div>
+            <div class="mission-terminal-status">&gt; {message}</div>
+        </div>
+        """
+        st.markdown(html, unsafe_allow_html=True)
+
+
+# =============================================================================
+# TYPING INDICATOR FOR ANIMATED DIALOGUE
+# =============================================================================
+
+def render_typing_indicator(
+    container,
+    speaker_name: str,
+    role_display: str = "",
+) -> None:
+    """
+    Render a typing indicator bubble showing who is about to speak.
+
+    This creates the "X is typing..." effect before a new dialogue
+    bubble appears, making the conversation feel more dynamic.
+
+    Args:
+        container: Streamlit container to render in
+        speaker_name: Name of the speaker (e.g., "COL Young")
+        role_display: Optional role display (e.g., "J2 - Intelligence")
+    """
+    with container:
+        role_text = f" ({role_display})" if role_display else ""
+        html = f"""
+        <div class="typing-indicator">
+            <div class="typing-indicator-content">
+                <span><strong>{speaker_name}</strong>{role_text} is typing</span>
+                <div class="typing-indicator-dots">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </div>
+        </div>
+        """
+        st.markdown(html, unsafe_allow_html=True)
+
+
+def render_turns_with_typing_animation(
+    turns: list[DialogueTurn],
+    container,
+    typing_delay: float = 0.4,
+    turn_delay: float = 0.2,
+    scrollable: bool = True,
+) -> None:
+    """
+    Render dialogue turns with typing indicator animation before each new message.
+
+    This function shows a brief "X is typing..." indicator before each
+    dialogue bubble appears, creating a more dynamic conversation feel.
+
+    Args:
+        turns: List of DialogueTurn objects to render
+        container: Streamlit container (from st.empty() or st.container())
+        typing_delay: Seconds to show typing indicator (0.3-0.7 recommended)
+        turn_delay: Delay between turns after bubble appears
+        scrollable: Whether to wrap in a scrollable container
+    """
+    rendered_turns: list[DialogueTurn] = []
+
+    for turn in turns:
+        # First, show typing indicator with previously rendered turns
+        with container:
+            if scrollable:
+                st.markdown('<div class="dialogue-scroll-area">', unsafe_allow_html=True)
+
+            st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
+
+            # Render all previously completed turns
+            for prev_turn in rendered_turns:
+                render_dialogue_bubble_from_turn(prev_turn)
+
+            # Show typing indicator for current speaker
+            render_typing_indicator(
+                st.container(),
+                turn.get('speaker', 'Staff'),
+                turn.get('role_display', ''),
+            )
+
+            st.markdown('</div>', unsafe_allow_html=True)
+            if scrollable:
+                # Auto-scroll anchor
+                st.markdown('<div class="dialogue-scroll-anchor" id="scroll-anchor"></div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        time.sleep(typing_delay)
+
+        # Now render with the actual turn
+        rendered_turns.append(turn)
+
+        with container:
+            if scrollable:
+                st.markdown('<div class="dialogue-scroll-area">', unsafe_allow_html=True)
+
+            st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
+            for prev_turn in rendered_turns:
+                render_dialogue_bubble_from_turn(prev_turn)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            if scrollable:
+                st.markdown('<div class="dialogue-scroll-anchor" id="scroll-anchor"></div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        if turn_delay > 0:
+            time.sleep(turn_delay)
+
+
+# =============================================================================
+# COLLAPSIBLE TRANSCRIPT ARCHIVE
+# =============================================================================
+
+def get_pretty_phase_name(phase_id: str) -> str:
+    """
+    Convert a phase_substep ID to a human-readable name.
+
+    Args:
+        phase_id: Phase ID like "MISSION_ANALYSIS_a" or "COA_DEVELOPMENT_c"
+
+    Returns:
+        Pretty name like "Step 2: Mission Analysis - Staff Meeting"
+    """
+    # Parse phase and substep
+    parts = phase_id.rsplit('_', 1)
+    if len(parts) == 2:
+        phase_name, substep = parts
+    else:
+        phase_name = phase_id
+        substep = ""
+
+    # Phase number mapping
+    phase_nums = {
+        "PLANNING_INITIATION": 1,
+        "MISSION_ANALYSIS": 2,
+        "COA_DEVELOPMENT": 3,
+        "COA_ANALYSIS": 4,
+        "COA_COMPARISON": 5,
+        "COA_APPROVAL": 6,
+        "PLAN_DEVELOPMENT": 7,
+    }
+
+    phase_display = {
+        "PLANNING_INITIATION": "Planning Initiation",
+        "MISSION_ANALYSIS": "Mission Analysis",
+        "COA_DEVELOPMENT": "COA Development",
+        "COA_ANALYSIS": "COA Analysis & Wargaming",
+        "COA_COMPARISON": "COA Comparison",
+        "COA_APPROVAL": "COA Approval",
+        "PLAN_DEVELOPMENT": "Plan/Order Development",
+    }
+
+    substep_names = {
+        'a': 'Staff Meeting',
+        'b': 'Slide Generation',
+        'c': 'Commander Brief',
+        'd': 'Commander Guidance',
+    }
+
+    num = phase_nums.get(phase_name, 0)
+    display = phase_display.get(phase_name, phase_name.replace('_', ' ').title())
+    substep_display = substep_names.get(substep, substep)
+
+    if substep:
+        return f"Step {num}: {display} - {substep_display}"
+    return f"Step {num}: {display}"
+
+
+def render_transcript_archive() -> None:
+    """
+    Render the collapsible transcript archive showing all completed phase transcripts.
+
+    This creates an expander with all stored transcripts organized by phase,
+    separate from the live streaming area to keep the main view focused.
+    """
+    phase_transcripts = st.session_state.get("phase_transcripts", {})
+
+    if not phase_transcripts:
+        return
+
+    with st.expander("📜 Transcript Archive", expanded=False):
+        st.markdown("""
+        <div class="transcript-archive-header">
+            Complete dialogue transcripts from all completed phases
+        </div>
+        """, unsafe_allow_html=True)
+
+        # Sort transcripts by phase order
+        phase_order = [
+            "PLANNING_INITIATION", "MISSION_ANALYSIS", "COA_DEVELOPMENT",
+            "COA_ANALYSIS", "COA_COMPARISON", "COA_APPROVAL", "PLAN_DEVELOPMENT"
+        ]
+        substep_order = ['a', 'b', 'c', 'd']
+
+        # Group by phase
+        for phase_name in phase_order:
+            phase_has_content = False
+            for substep in substep_order:
+                key = f"{phase_name}_{substep}"
+                if key in phase_transcripts and phase_transcripts[key]:
+                    if not phase_has_content:
+                        st.markdown(f"#### {get_pretty_phase_name(f'{phase_name}_a').rsplit(' - ', 1)[0]}")
+                        phase_has_content = True
+
+                    turns = phase_transcripts[key]
+                    substep_names = {'a': 'Staff Meeting', 'c': 'Commander Brief'}
+
+                    # Only show substantive dialogue (a and c)
+                    if substep in ['a', 'c']:
+                        with st.container():
+                            st.markdown(f"**{substep_names.get(substep, substep)}** ({len(turns)} turns)")
+
+                            for turn in turns:
+                                speaker = turn.get('speaker', 'Unknown')
+                                role = turn.get('role_display', '')
+                                branch = turn.get('branch', '')
+                                text = turn.get('text', '')
+
+                                # Truncate long text for archive view
+                                if len(text) > 300:
+                                    text = text[:300] + "..."
+
+                                st.markdown(f"""
+                                <div class="transcript-turn">
+                                    <span class="transcript-speaker">{speaker}</span>
+                                    <span style="color: #666;">({branch}, {role})</span>:
+                                    {text}
+                                </div>
+                                """, unsafe_allow_html=True)
+
+                            st.markdown("---")
 
 
 def render_transcript_access(phase_name: str, substep: str) -> None:
@@ -2016,7 +2643,7 @@ def init_session_state():
         "dialogue_history": [],
         "pdf_slides": {},
         "model_name": "gpt-4o",
-        "temperature": 0.7,
+        "temperature": 0.8,  # Higher default for natural dialogue
         "persona_seed": 0,
         # New orchestration state
         "orchestrator": None,
@@ -2025,6 +2652,9 @@ def init_session_state():
         "substep_status": "",       # Status message for current substep
         "phase_results": {},        # PhaseResult objects by phase name
         "prior_context": "",        # Accumulated context from prior phases
+        # Enhanced UX state
+        "phase_transcripts": {},    # Full transcripts per phase for archive
+        "micro_progress_index": 0,  # Current micro-progress message index
     }
 
     for key, default in defaults.items():
@@ -2574,12 +3204,18 @@ DIALOGUE BUBBLE FLOW (per phase):
 
 
 def render_planning_dashboard():
-    """Render the main planning dashboard with all phases."""
+    """Render the main planning dashboard with all phases and transcript archive."""
     st.markdown("## Joint Planning Process Dashboard")
 
-    # Progress overview
+    # Progress overview using mission terminal style
     completed_phases = len([p for p in JPPPhase if p.name in st.session_state.phase_outputs])
-    st.progress(completed_phases / 7, text=f"Progress: {completed_phases}/7 phases complete")
+    progress_container = st.empty()
+    render_mission_status(
+        progress_container,
+        completed_phases / 7,
+        f"{completed_phases}/7 phases complete",
+        phase_name="DASHBOARD",
+    )
 
     # Render each phase
     for phase in JPPPhase:
@@ -2588,6 +3224,9 @@ def render_planning_dashboard():
         is_complete = phase.name in st.session_state.phase_outputs
 
         render_phase_section(phase, phase_info, is_current, is_complete)
+
+    # Add the collapsible transcript archive
+    render_transcript_archive()
 
     # Final report section
     if completed_phases == 7:
@@ -2677,13 +3316,17 @@ def run_phase_with_live_dialogue(
     dialogue_container,
     status_container,
     banner_container=None,
+    micro_progress_container=None,
 ) -> PhaseResult | None:
     """
     Execute a single JPP phase with live incremental dialogue rendering.
 
     This function runs the full 4-step meeting flow (a-d) for a phase,
     rendering each dialogue turn as it happens in a scrollable container.
-    Transcripts are stored for later access.
+    Now includes:
+    - Micro-progress indicators while generating
+    - Typing indicators before each new speaker
+    - Automatic transcript archiving
 
     Args:
         phase: The JPP phase to execute
@@ -2691,6 +3334,7 @@ def run_phase_with_live_dialogue(
         dialogue_container: Streamlit container for live dialogue
         status_container: Streamlit container for status messages
         banner_container: Optional container for phase banner
+        micro_progress_container: Optional container for micro-progress messages
 
     Returns:
         PhaseResult with all phase outputs, or None on error
@@ -2705,9 +3349,30 @@ def run_phase_with_live_dialogue(
     # Track live turns for incremental rendering
     live_turns: list[DialogueTurn] = []
     current_substep = 'a'
+    is_first_turn_in_substep = True
 
     def on_turn_callback(turn: DialogueTurn):
-        """Called for each dialogue turn - renders incrementally in scrollable container."""
+        """Called for each dialogue turn - renders with typing indicator animation."""
+        nonlocal is_first_turn_in_substep
+
+        # Clear micro-progress when first turn arrives
+        if is_first_turn_in_substep and micro_progress_container:
+            micro_progress_container.empty()
+            is_first_turn_in_substep = False
+
+        # Show typing indicator briefly before the actual turn
+        render_turns_incrementally(
+            live_turns,
+            dialogue_container,
+            delay=0,
+            scrollable=True,
+            show_typing_indicator=True,
+            next_speaker=turn.get('speaker', 'Staff'),
+            next_role=turn.get('role_display', ''),
+        )
+        time.sleep(0.35)  # Brief pause to see typing indicator
+
+        # Now add the turn and render without indicator
         live_turns.append(turn)
         st.session_state.live_turns = live_turns
 
@@ -2715,9 +3380,10 @@ def run_phase_with_live_dialogue(
         render_turns_incrementally(live_turns, dialogue_container, delay=0, scrollable=True)
 
     def on_substep_callback(substep: str, description: str):
-        """Called when starting a new substep."""
-        nonlocal current_substep, live_turns
+        """Called when starting a new substep - shows micro-progress."""
+        nonlocal current_substep, live_turns, is_first_turn_in_substep
         current_substep = substep
+        is_first_turn_in_substep = True
         st.session_state.current_substep = substep
         st.session_state.substep_status = description
 
@@ -2731,7 +3397,18 @@ def run_phase_with_live_dialogue(
             live_turns = []
             st.session_state.live_turns = []
 
-        # Update status
+        # Update status with micro-progress style
+        if micro_progress_container and substep in ['a', 'c']:
+            substep_descriptions = {
+                'a': f"Staff assembling for {phase_info['name']}...",
+                'c': "Preparing commander briefing...",
+            }
+            render_micro_progress_message(
+                micro_progress_container,
+                substep_descriptions.get(substep, description)
+            )
+
+        # Update main status
         with status_container:
             substep_names = {'a': 'Staff Meeting', 'b': 'Slide Generation', 'c': 'Commander Brief', 'd': 'Commander Guidance'}
             st.info(f"**Step {phase.value}{substep.upper()}**: {substep_names.get(substep, substep)}")
@@ -2746,6 +3423,17 @@ def run_phase_with_live_dialogue(
         live_turns = []
         st.session_state.live_turns = []
 
+        # Show initial micro-progress messages while waiting for dialogue to start
+        if micro_progress_container:
+            messages = MICRO_PROGRESS_MESSAGES.get(phase.name, [
+                "Coordinating staff inputs...",
+                "Synchronizing analysis...",
+            ])
+            # Show first 2 micro-progress messages quickly
+            for msg in messages[:2]:
+                render_micro_progress_message(micro_progress_container, msg)
+                time.sleep(1.5)
+
         # Show initial banner
         if banner_container:
             with banner_container:
@@ -2758,7 +3446,7 @@ def run_phase_with_live_dialogue(
             prior_context=prior_context,
             on_turn_callback=on_turn_callback,
             on_substep_callback=on_substep_callback,
-            turn_delay=0.15,  # Slightly faster for better UX
+            turn_delay=0.1,  # Faster since we have typing indicator delay
         )
 
         # Store final transcripts
@@ -2896,18 +3584,21 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
     """
     Run all 7 JPP phases sequentially with the new orchestrator.
 
-    Features:
+    Enhanced Features:
+    - Mission terminal style status bar (replaces generic progress bar)
+    - Micro-progress indicators during generation
+    - Typing indicators for animated dialogue
     - Live scrollable dialogue containers per phase
+    - Automatic transcript archiving
     - Current phase banner
-    - Progress bar
-    - Transcript storage for later access
 
     This replaces the legacy run_full_planning function.
     """
     st.session_state.is_running = True
 
-    # Create containers for live updates
-    progress_bar = st.progress(0, text="Initializing multi-agent planning process...")
+    # Create containers for live updates with enhanced UX
+    terminal_container = st.empty()  # Mission terminal status bar
+    micro_progress_container = st.empty()  # Micro-progress messages
     banner_container = st.empty()  # Current phase banner
     status_container = st.empty()
     dialogue_container = st.empty()
@@ -2919,9 +3610,15 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
         for idx, phase in enumerate(phases):
             phase_info = JPP_PHASE_INFO[phase]
 
-            # Update progress
+            # Update mission terminal status bar
             progress = idx / total_phases
-            progress_bar.progress(progress, text=f"Phase {idx + 1}/{total_phases}: {phase_info['name']}")
+            render_mission_status(
+                terminal_container,
+                progress,
+                f"Executing {phase_info['name']}...",
+                phase_name=phase.name,
+                substep='a',
+            )
 
             with status_container:
                 st.info(f"Starting Phase {idx + 1}: {phase_info['name']}")
@@ -2929,13 +3626,14 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
             # Clear dialogue for new phase
             st.session_state.live_turns = []
 
-            # Run the phase with banner updates
+            # Run the phase with all enhanced features
             phase_result = run_phase_with_live_dialogue(
                 phase=phase,
                 scenario=scenario,
                 dialogue_container=dialogue_container,
                 status_container=status_container,
                 banner_container=banner_container,
+                micro_progress_container=micro_progress_container,
             )
 
             if phase_result:
@@ -2943,6 +3641,15 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                 legacy_output = convert_phase_result_to_legacy_format(phase_result)
                 st.session_state.phase_outputs[phase.name] = legacy_output
                 st.session_state.phase_results[phase.name] = phase_result
+
+                # Update terminal to show phase completion
+                render_mission_status(
+                    terminal_container,
+                    (idx + 1) / total_phases,
+                    f"Phase {idx + 1} complete: {phase_info['name']}",
+                    phase_name=phase.name,
+                    substep='d',
+                )
 
                 # IMMEDIATELY generate and store PDFs - error resilient
                 # These will persist in session state even if later phases fail
@@ -2962,8 +3669,15 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                 st.session_state.is_running = False
                 return False
 
-        progress_bar.progress(1.0, text="All phases complete!")
+        # Final completion status
+        render_mission_status(
+            terminal_container,
+            1.0,
+            "MISSION COMPLETE - All phases executed successfully",
+            phase_name="COMPLETE",
+        )
         banner_container.empty()  # Clear the banner
+        micro_progress_container.empty()  # Clear micro-progress
         with status_container:
             st.success("Joint Planning Process complete! All 7 phases executed successfully.")
 
