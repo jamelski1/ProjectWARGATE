@@ -19,7 +19,7 @@ from dataclasses import dataclass
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, BaseMessage
 from langchain_core.tools import Tool, tool
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate
 from pydantic import BaseModel, Field
 
 # Handle different LangChain versions for agent imports
@@ -1010,7 +1010,7 @@ class StaffAgent:
         prompt = ChatPromptTemplate.from_messages([
             SystemMessage(content=self.system_prompt),
             MessagesPlaceholder(variable_name="chat_history", optional=True),
-            HumanMessage(content="{input}"),
+            HumanMessagePromptTemplate.from_template("{input}"),
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
 
