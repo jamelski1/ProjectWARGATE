@@ -661,11 +661,15 @@ You have access to retrieval tools that can provide additional context. USE THEM
 - Even if tools return placeholder data, this demonstrates proper tool usage patterns
 - Multiple tool calls per response are allowed and encouraged when relevant
 
-OUTPUT STYLE:
-- Be concise but doctrinally meaningful
-- Structure responses with clear headers and bullet points
-- Focus on actionable insights, not lengthy prose
-- Use military terminology appropriately
+OUTPUT STYLE - CRITICAL:
+- Produce POLISHED STAFF PRODUCTS, not scratchpads or stream-of-consciousness
+- DO NOT expose your reasoning process (no "First I considered...", "Let me think...")
+- DO NOT include step-by-step chain-of-thought in your output
+- Structure responses with clear headers, bullet points, and professional formatting
+- Be concise but doctrinally meaningful - focus on conclusions and recommendations
+- High-level rationales are appropriate; detailed reasoning traces are not
+- Use military terminology and standard staff formats appropriately
+- Your output should look like a finished brief, not working notes
 """
 
 
@@ -736,13 +740,15 @@ class StaffAgent:
         agent = create_openai_functions_agent(llm, tools, prompt)
 
         # AgentExecutor wraps the agent and handles the tool-calling loop
+        # Note: verbose controls whether agent reasoning is printed to stdout
+        # Set to False in production to hide chain-of-thought / scratchpad
         self.executor = AgentExecutor(
             agent=agent,
             tools=tools,
-            verbose=verbose,
+            verbose=verbose,  # Set False to hide agent reasoning steps
             handle_parsing_errors=True,
             max_iterations=5,  # Prevent infinite loops
-            return_intermediate_steps=False,  # Only return final output
+            return_intermediate_steps=False,  # Only return final polished output
         )
 
     def invoke(self, input_text: str, chat_history: list[BaseMessage] | None = None) -> str:
@@ -2351,7 +2357,8 @@ def run_wargate_planning(
 # CLI INTERFACE
 # =============================================================================
 
-if __name__ == "__main__":
+def main():
+    """Main CLI entry point."""
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -2395,7 +2402,7 @@ Example usage:
     parser.add_argument(
         "--quiet", "-q",
         action="store_true",
-        help="Disable verbose output"
+        help="Disable verbose output (recommended for clean output)"
     )
 
     parser.add_argument(
@@ -2447,8 +2454,8 @@ Time available for planning: 48 hours
         print("No scenario provided. Using default demonstration scenario.\n")
 
     # Run planning with appropriate controller
+    # Note: verbose=False hides agent reasoning/chain-of-thought for clean output
     if args.legacy:
-        # Use legacy orchestrator
         result = run_wargate_planning(
             scenario=scenario,
             model_name=args.model,
@@ -2456,7 +2463,6 @@ Time available for planning: 48 hours
             verbose=not args.quiet,
         )
     else:
-        # Use new JointStaffPlanningController (default)
         result = run_joint_staff_planning(
             scenario_text=scenario,
             model_name=args.model,
@@ -2471,3 +2477,54 @@ Time available for planning: 48 hours
         print(f"\nOutput written to: {args.output}")
     else:
         print(result)
+
+
+# =============================================================================
+# EXAMPLE USAGE
+# =============================================================================
+
+if __name__ == "__main__":
+    # Option 1: Run via CLI
+    # main()
+
+    # Option 2: Direct Python usage example
+    # Uncomment below to run directly:
+
+    """
+    # Simple example - just call run_joint_staff_planning with a scenario
+    scenario = '''
+    In 2030, global tensions escalate due to resource scarcity and AI-enabled
+    cyber competition between Country X and Country Y. Country X has positioned
+    significant military forces along the shared border, including:
+    - 2 armored divisions with advanced AI-enabled autonomous systems
+    - Long-range precision fires capable of reaching Y's critical infrastructure
+    - Sophisticated cyber capabilities that have probed Y's power grid
+    - A disinformation campaign undermining Y's government legitimacy
+
+    Country Y, a US treaty ally, has requested assistance. US forces available:
+    - 1 Armored BCT in neighboring country
+    - Carrier Strike Group in regional waters
+    - Air Force assets at regional bases
+    - Cyber Command capabilities
+
+    Mission: Develop options to deter aggression, defend the ally if deterrence
+    fails, and restore stability to the region.
+
+    Constraints: Minimize escalation risk. Protect civilian infrastructure.
+    Coalition support is politically essential.
+    '''
+
+    # Run the planning process
+    # Set verbose=False for clean output without agent reasoning traces
+    result = run_joint_staff_planning(
+        scenario_text=scenario,
+        model_name="gpt-4.1",
+        temperature=0.7,
+        verbose=False,  # False = clean output, True = show progress
+    )
+
+    print(result)
+    """
+
+    # Default: Run CLI
+    main()
