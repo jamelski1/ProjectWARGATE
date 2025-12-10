@@ -517,6 +517,97 @@ section[data-testid="stSidebar"] hr {
     padding: 0;
 }
 
+/* Scrollable dialogue area - prevents page from growing infinitely */
+.dialogue-scroll-area {
+    max-height: 500px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    background-color: var(--bg-primary);
+}
+
+/* Custom scrollbar styling for dialogue area */
+.dialogue-scroll-area::-webkit-scrollbar {
+    width: 8px;
+}
+
+.dialogue-scroll-area::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+}
+
+.dialogue-scroll-area::-webkit-scrollbar-thumb {
+    background-color: var(--primary-purple);
+    border-radius: 4px;
+}
+
+.dialogue-scroll-area::-webkit-scrollbar-thumb:hover {
+    background-color: #5a0b9d;
+}
+
+/* Current phase banner */
+.current-phase-banner {
+    background: linear-gradient(135deg, var(--primary-purple), #8b1fd4);
+    color: #FFFFFF;
+    padding: 0.75rem 1.25rem;
+    border-radius: 0;
+    margin-bottom: 1rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    box-shadow: 0 2px 8px rgba(106, 13, 173, 0.3);
+}
+
+.current-phase-banner .phase-indicator {
+    background-color: rgba(255,255,255,0.2);
+    padding: 0.25rem 0.5rem;
+    border-radius: 3px;
+    font-size: 0.85rem;
+}
+
+.current-phase-banner .phase-name {
+    font-size: 1.1rem;
+}
+
+/* Step container styling */
+.step-container {
+    border: 1px solid var(--border-color);
+    border-radius: 0;
+    margin-bottom: 1rem;
+    background-color: var(--bg-secondary);
+}
+
+.step-container.current {
+    border-color: var(--primary-purple);
+    border-width: 2px;
+    box-shadow: 0 0 12px rgba(106, 13, 173, 0.2);
+}
+
+.step-container.completed {
+    opacity: 0.9;
+}
+
+.step-header {
+    background-color: var(--bg-tertiary);
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.step-header .step-title {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.step-header .step-status {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
 .dialogue-bubble {
     background-color: var(--bg-secondary);
     border-radius: 0;
@@ -910,12 +1001,55 @@ def render_dialogue_sequence(dialogues: list[tuple[str, str]]) -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def split_first_sentence(text: str) -> tuple[str, str]:
+    """
+    Split text into the first sentence (summary) and the rest (body).
+
+    The first sentence is identified by the first occurrence of '.', '!', or '?'
+    followed by a space or end of text. This allows agents' summary sentences
+    to be rendered in bold for easy skimming.
+
+    Args:
+        text: The full dialogue text
+
+    Returns:
+        Tuple of (first_sentence, rest_of_text)
+
+    Examples:
+        >>> split_first_sentence("We need more intel. Here's why...")
+        ("We need more intel.", "Here's why...")
+
+        >>> split_first_sentence("Short statement.")
+        ("Short statement.", "")
+    """
+    if not text:
+        return ("", "")
+
+    text = text.strip()
+
+    # Look for sentence-ending punctuation followed by space or end
+    import re
+    # Match first sentence ending with . ! or ? followed by space or end
+    match = re.search(r'^(.+?[.!?])(?:\s+|$)', text)
+
+    if match:
+        first_sentence = match.group(1).strip()
+        rest = text[match.end():].strip()
+        return (first_sentence, rest)
+    else:
+        # No clear sentence break found, return whole text as summary
+        return (text, "")
+
+
 def render_dialogue_bubble_from_turn(turn: DialogueTurn) -> None:
     """
     Render a dialogue bubble directly from a DialogueTurn object.
 
     This is the preferred method for rendering dialogue from the new
     orchestration system, as it uses the DialogueTurn type directly.
+
+    The first sentence of each turn is rendered in bold as a summary
+    to allow users to quickly skim conversations.
 
     Args:
         turn: DialogueTurn object from the orchestrator
@@ -932,11 +1066,17 @@ def render_dialogue_bubble_from_turn(turn: DialogueTurn) -> None:
     branch_class = branch_class_map.get(turn.get("branch", ""), "joint")
     commander_class = "commander" if turn.get("is_commander", False) else ""
 
-    # Format the text content - convert markdown to HTML-safe format
-    content = turn.get("text", "")
-    # Wrap in paragraph tags if not already formatted
-    if not content.startswith("<p>") and not content.startswith("<"):
-        content = f"<p>{content}</p>"
+    # Get and format text content with bold first sentence
+    raw_text = turn.get("text", "")
+    summary, body = split_first_sentence(raw_text)
+
+    # Build content with bold summary and regular body
+    if summary and body:
+        content = f"<p><strong>{summary}</strong></p><p>{body}</p>"
+    elif summary:
+        content = f"<p><strong>{summary}</strong></p>"
+    else:
+        content = f"<p>{raw_text}</p>"
 
     html = f"""
     <div class="dialogue-bubble {branch_class} {commander_class}">
@@ -956,7 +1096,8 @@ def render_dialogue_bubble_from_turn(turn: DialogueTurn) -> None:
 def render_turns_incrementally(
     turns: list[DialogueTurn],
     container,
-    delay: float = 0.0
+    delay: float = 0.0,
+    scrollable: bool = True,
 ) -> None:
     """
     Render a list of dialogue turns into a Streamlit container.
@@ -968,15 +1109,138 @@ def render_turns_incrementally(
         turns: List of DialogueTurn objects to render
         container: Streamlit container (from st.empty() or st.container())
         delay: Optional delay between renders for visual effect
+        scrollable: Whether to wrap in a scrollable container (default True)
     """
     with container:
+        if scrollable:
+            st.markdown('<div class="dialogue-scroll-area">', unsafe_allow_html=True)
+
         st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
         for turn in turns:
             render_dialogue_bubble_from_turn(turn)
         st.markdown('</div>', unsafe_allow_html=True)
 
+        if scrollable:
+            st.markdown('</div>', unsafe_allow_html=True)
+
     if delay > 0:
         time.sleep(delay)
+
+
+def render_current_phase_banner(phase_num: int, phase_name: str, substep: str = "") -> None:
+    """
+    Render a banner showing the current phase being processed.
+
+    Args:
+        phase_num: The phase number (1-7)
+        phase_name: The phase name (e.g., "Mission Analysis")
+        substep: Optional substep indicator (a, b, c, d)
+    """
+    substep_names = {
+        'a': 'Staff Meeting',
+        'b': 'Slide Generation',
+        'c': 'Commander Brief',
+        'd': 'Commander Guidance',
+    }
+    substep_text = f" - {substep_names.get(substep, substep)}" if substep else ""
+
+    html = f"""
+    <div class="current-phase-banner">
+        <span class="phase-indicator">STEP {phase_num}{substep.upper() if substep else ''}</span>
+        <span class="phase-name">{phase_name}{substep_text}</span>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def format_transcript_text(turns: list[DialogueTurn]) -> str:
+    """
+    Format dialogue turns into a plain text transcript for download.
+
+    Args:
+        turns: List of DialogueTurn objects
+
+    Returns:
+        Formatted transcript as plain text string
+    """
+    lines = []
+    lines.append("=" * 70)
+    lines.append("WARGATE STAFF MEETING TRANSCRIPT")
+    lines.append(f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    lines.append("=" * 70)
+    lines.append("")
+
+    for turn in turns:
+        speaker = turn.get('speaker', 'Unknown')
+        role = turn.get('role_display', turn.get('role', 'Staff'))
+        branch = turn.get('branch', 'Joint')
+        text = turn.get('text', '')
+
+        lines.append("-" * 50)
+        lines.append(f"{speaker} ({branch}) - {role}")
+        lines.append("-" * 50)
+        lines.append(text)
+        lines.append("")
+
+    lines.append("=" * 70)
+    lines.append("END OF TRANSCRIPT")
+    lines.append("=" * 70)
+
+    return "\n".join(lines)
+
+
+def store_phase_transcript(phase_name: str, substep: str, turns: list[DialogueTurn]) -> None:
+    """
+    Store dialogue transcript in session state for later access.
+
+    Args:
+        phase_name: Name of the phase (e.g., "MISSION_ANALYSIS")
+        substep: The substep ('a', 'b', 'c', 'd')
+        turns: List of DialogueTurn objects
+    """
+    if "transcripts" not in st.session_state:
+        st.session_state.transcripts = {}
+
+    key = f"{phase_name}_{substep}"
+    st.session_state.transcripts[key] = turns
+
+
+def render_transcript_access(phase_name: str, substep: str) -> None:
+    """
+    Render transcript access options (expander and download button).
+
+    Args:
+        phase_name: Name of the phase
+        substep: The substep ('a', 'b', 'c', 'd')
+    """
+    key = f"{phase_name}_{substep}"
+    transcripts = st.session_state.get("transcripts", {})
+    turns = transcripts.get(key, [])
+
+    if not turns:
+        return
+
+    col1, col2 = st.columns([3, 1])
+
+    with col1:
+        with st.expander("View Full Transcript", expanded=False):
+            for turn in turns:
+                speaker = turn.get('speaker', 'Unknown')
+                role = turn.get('role_display', '')
+                text = turn.get('text', '')
+                st.markdown(f"**{speaker}** ({role}):")
+                st.markdown(text)
+                st.markdown("---")
+
+    with col2:
+        transcript_text = format_transcript_text(turns)
+        st.download_button(
+            "Download Transcript",
+            data=transcript_text,
+            file_name=f"wargate_{phase_name}_{substep}_transcript.txt",
+            mime="text/plain",
+            use_container_width=True,
+        )
 
 
 # =============================================================================
@@ -1403,13 +1667,22 @@ def render_phase_section(
     is_current: bool = False,
     is_complete: bool = False
 ):
-    """Render a JPP phase section with dialogue and PDF outputs."""
+    """
+    Render a JPP phase section with dialogue and PDF outputs.
+
+    Features:
+    - Scrollable dialogue containers (max 500px height)
+    - Bold first-sentence summaries for skimming
+    - Transcript download buttons
+    - Collapsible expanders for completed phases
+    """
     phase_num = phase.value
     phase_name = phase_info["name"]
 
     # Phase header
     status_icon = "🔄" if is_current else ("✅" if is_complete else "⏳")
 
+    # Completed phases are collapsed by default, current phase is expanded
     with st.expander(f"STEP {phase_num}: {phase_name.upper()} {status_icon}", expanded=is_current):
         st.markdown(f"**Description:** {phase_info['description']}")
 
@@ -1429,27 +1702,40 @@ def render_phase_section(
                 if phase_result and "meeting" in phase_result:
                     meeting_turns = phase_result["meeting"]["turns"]
                     turn_count = len(meeting_turns)
-                    st.caption(f"{turn_count} dialogue turns from {len(set(t['role'] for t in meeting_turns))} staff agents")
+                    unique_agents = len(set(t['role'] for t in meeting_turns))
+                    st.caption(f"{turn_count} dialogue turns from {unique_agents} staff agents")
 
+                    # Render in scrollable container
+                    st.markdown('<div class="dialogue-scroll-area">', unsafe_allow_html=True)
+                    st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
                     for turn in meeting_turns:
                         render_dialogue_bubble_from_turn(turn)
+                    st.markdown('</div></div>', unsafe_allow_html=True)
+
+                    # Transcript access
+                    render_transcript_access(phase.name, 'a')
+
                 # Fallback to legacy format
                 elif "dialogues" in output:
+                    st.markdown('<div class="dialogue-scroll-area">', unsafe_allow_html=True)
                     for role, content in output["dialogues"]:
                         persona = DEFAULT_PERSONAS.get(role, DEFAULT_PERSONAS["commander"])
                         render_dialogue_bubble(persona, content, role == "commander")
+                    st.markdown('</div>', unsafe_allow_html=True)
 
             with tabs[1]:
                 st.subheader("Planning Slides")
 
                 # Show slide preview if available
                 if phase_result and "slides" in phase_result:
+                    st.markdown('<div class="dialogue-scroll-area">', unsafe_allow_html=True)
                     for slide in phase_result["slides"]:
                         with st.container():
                             st.markdown(f"**{slide['title']}**")
                             for bullet in slide["bullets"]:
                                 st.markdown(f"- {bullet}")
                             st.markdown("---")
+                    st.markdown('</div>', unsafe_allow_html=True)
 
                 if "pdf" in output:
                     st.download_button(
@@ -1466,19 +1752,30 @@ def render_phase_section(
                 # Try PhaseResult format first
                 if phase_result and "brief" in phase_result:
                     brief_turns = phase_result["brief"]["turns"]
+
+                    # Render in scrollable container
+                    st.markdown('<div class="dialogue-scroll-area">', unsafe_allow_html=True)
+                    st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
                     for turn in brief_turns:
                         render_dialogue_bubble_from_turn(turn)
+                    st.markdown('</div></div>', unsafe_allow_html=True)
 
                     # Show Q&A summary
                     if phase_result["brief"]["questions_asked"]:
                         st.markdown("#### Commander's Questions:")
                         for q in phase_result["brief"]["questions_asked"]:
                             st.markdown(f"- {q}")
+
+                    # Transcript access
+                    render_transcript_access(phase.name, 'c')
+
                 # Fallback to legacy format
                 elif "brief" in output:
+                    st.markdown('<div class="dialogue-scroll-area">', unsafe_allow_html=True)
                     for role, content in output["brief"]:
                         persona = DEFAULT_PERSONAS.get(role, DEFAULT_PERSONAS["commander"])
                         render_dialogue_bubble(persona, content, role == "commander")
+                    st.markdown('</div>', unsafe_allow_html=True)
 
             with tabs[3]:
                 st.subheader("Commander's Guidance")
@@ -1806,55 +2103,80 @@ def run_phase_with_live_dialogue(
     scenario: str,
     dialogue_container,
     status_container,
+    banner_container=None,
 ) -> PhaseResult | None:
     """
     Execute a single JPP phase with live incremental dialogue rendering.
 
     This function runs the full 4-step meeting flow (a-d) for a phase,
-    rendering each dialogue turn as it happens.
+    rendering each dialogue turn as it happens in a scrollable container.
+    Transcripts are stored for later access.
 
     Args:
         phase: The JPP phase to execute
         scenario: The operational scenario text
         dialogue_container: Streamlit container for live dialogue
         status_container: Streamlit container for status messages
+        banner_container: Optional container for phase banner
 
     Returns:
         PhaseResult with all phase outputs, or None on error
     """
     orchestrator = get_or_create_orchestrator()
     orchestrator_phase = map_jpp_phase_to_orchestrator(phase)
+    phase_info = JPP_PHASE_INFO[phase]
 
     # Get prior context from previous phases
     prior_context = st.session_state.prior_context
 
     # Track live turns for incremental rendering
     live_turns: list[DialogueTurn] = []
+    current_substep = 'a'
 
     def on_turn_callback(turn: DialogueTurn):
-        """Called for each dialogue turn - renders incrementally."""
+        """Called for each dialogue turn - renders incrementally in scrollable container."""
         live_turns.append(turn)
         st.session_state.live_turns = live_turns
 
-        # Re-render all turns in the dialogue container
-        with dialogue_container.container():
-            st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
-            for t in live_turns:
-                render_dialogue_bubble_from_turn(t)
-            st.markdown('</div>', unsafe_allow_html=True)
+        # Re-render all turns in the scrollable dialogue container
+        render_turns_incrementally(live_turns, dialogue_container, delay=0, scrollable=True)
 
     def on_substep_callback(substep: str, description: str):
         """Called when starting a new substep."""
+        nonlocal current_substep, live_turns
+        current_substep = substep
         st.session_state.current_substep = substep
         st.session_state.substep_status = description
+
+        # Store transcript from previous substep before clearing
+        if live_turns and substep != 'a':
+            prev_substep = chr(ord(substep) - 1)  # Get previous substep letter
+            store_phase_transcript(phase.name, prev_substep, live_turns.copy())
+
+        # Clear turns for new substep (except for 'a' which starts fresh)
+        if substep in ['c', 'd']:  # Brief and Guidance are new conversations
+            live_turns = []
+            st.session_state.live_turns = []
+
+        # Update status
         with status_container:
             substep_names = {'a': 'Staff Meeting', 'b': 'Slide Generation', 'c': 'Commander Brief', 'd': 'Commander Guidance'}
-            st.info(f"**Step {phase.value}{substep}**: {substep_names.get(substep, substep)} - {description}")
+            st.info(f"**Step {phase.value}{substep.upper()}**: {substep_names.get(substep, substep)}")
+
+        # Update banner if provided
+        if banner_container:
+            with banner_container:
+                render_current_phase_banner(phase.value, phase_info['name'], substep)
 
     try:
         # Clear live turns for this phase
         live_turns = []
         st.session_state.live_turns = []
+
+        # Show initial banner
+        if banner_container:
+            with banner_container:
+                render_current_phase_banner(phase.value, phase_info['name'], 'a')
 
         # Run the full phase with live callbacks
         phase_result = orchestrator.run_full_phase(
@@ -1863,12 +2185,17 @@ def run_phase_with_live_dialogue(
             prior_context=prior_context,
             on_turn_callback=on_turn_callback,
             on_substep_callback=on_substep_callback,
-            turn_delay=0.2,  # Small delay for visual effect
+            turn_delay=0.15,  # Slightly faster for better UX
         )
 
-        # Update prior context for next phase
+        # Store final transcripts
         if phase_result:
-            # Add this phase's transcript and guidance to context
+            # Store meeting transcript
+            store_phase_transcript(phase.name, 'a', phase_result['meeting']['turns'])
+            # Store brief transcript
+            store_phase_transcript(phase.name, 'c', phase_result['brief']['turns'])
+
+            # Update prior context for next phase
             meeting_transcript = phase_result['meeting']['transcript']
             guidance_text = phase_result['guidance']['guidance_text']
             st.session_state.prior_context += f"\n\n=== {phase_result['phase_name']} ===\n{meeting_transcript[:2000]}\n\nCommander Guidance: {guidance_text[:500]}"
@@ -1983,12 +2310,19 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
     """
     Run all 7 JPP phases sequentially with the new orchestrator.
 
+    Features:
+    - Live scrollable dialogue containers per phase
+    - Current phase banner
+    - Progress bar
+    - Transcript storage for later access
+
     This replaces the legacy run_full_planning function.
     """
     st.session_state.is_running = True
 
     # Create containers for live updates
     progress_bar = st.progress(0, text="Initializing multi-agent planning process...")
+    banner_container = st.empty()  # Current phase banner
     status_container = st.empty()
     dialogue_container = st.empty()
 
@@ -2009,12 +2343,13 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
             # Clear dialogue for new phase
             st.session_state.live_turns = []
 
-            # Run the phase
+            # Run the phase with banner updates
             phase_result = run_phase_with_live_dialogue(
                 phase=phase,
                 scenario=scenario,
                 dialogue_container=dialogue_container,
                 status_container=status_container,
+                banner_container=banner_container,
             )
 
             if phase_result:
@@ -2028,6 +2363,7 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                 return False
 
         progress_bar.progress(1.0, text="All phases complete!")
+        banner_container.empty()  # Clear the banner
         with status_container:
             st.success("Joint Planning Process complete! All 7 phases executed successfully.")
 
