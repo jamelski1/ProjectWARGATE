@@ -4221,7 +4221,7 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
         return True
 
     except Exception as e:
-        progress_bar.empty()
+        terminal_container.empty()
         with status_container:
             st.error(f"Error: {str(e)}")
         st.exception(e)
