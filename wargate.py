@@ -20,8 +20,17 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, BaseMessage
 from langchain_core.tools import Tool, tool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents import AgentExecutor, create_openai_functions_agent
 from pydantic import BaseModel, Field
+
+# Handle different LangChain versions for agent imports
+try:
+    from langchain.agents import AgentExecutor, create_openai_functions_agent
+except ImportError:
+    try:
+        from langchain_community.agents import AgentExecutor, create_openai_functions_agent
+    except ImportError:
+        from langchain.agents import AgentExecutor
+        from langchain.agents.openai_functions_agent.base import create_openai_functions_agent
 
 
 # =============================================================================
@@ -30,7 +39,7 @@ from pydantic import BaseModel, Field
 
 class WARGATEConfig(BaseModel):
     """Configuration for the WARGATE planning system."""
-    model_name: str = Field(default="gpt-4.1", description="OpenAI model to use")
+    model_name: str = Field(default="gpt-5.1", description="OpenAI model to use")
     temperature: float = Field(default=0.7, description="LLM temperature")
     max_tokens: int = Field(default=4096, description="Max tokens per response")
     verbose: bool = Field(default=True, description="Enable verbose output")
@@ -962,7 +971,7 @@ class StaffAgent:
         executor: The LangChain AgentExecutor that runs the agent
 
     Example:
-        >>> config = WARGATEConfig(model_name="gpt-4.1", persona_seed=42)
+        >>> config = WARGATEConfig(model_name="gpt-5.1", persona_seed=42)
         >>> j2_agent = create_staff_agent(StaffRole.J2, config)
         >>> print(j2_agent.persona.full_designation)
         'COL (US Army) James Smith'
@@ -1109,13 +1118,13 @@ def create_staff_agent(
 
     Example:
         >>> # Random personas each time (default)
-        >>> config = WARGATEConfig(model_name="gpt-4.1")
+        >>> config = WARGATEConfig(model_name="gpt-5.1")
         >>> j3_agent = create_staff_agent(StaffRole.J3, config)
         >>> print(j3_agent.persona.full_designation)
         'Col (US Air Force) Jennifer Martinez'  # Different each run
 
         >>> # Reproducible personas with seed
-        >>> config = WARGATEConfig(model_name="gpt-4.1", persona_seed=42)
+        >>> config = WARGATEConfig(model_name="gpt-5.1", persona_seed=42)
         >>> j3_agent = create_staff_agent(StaffRole.J3, config)
         >>> print(j3_agent.persona.full_designation)
         'BG (US Army) Michael Johnson'  # Same every run with seed=42
@@ -1169,7 +1178,7 @@ def create_all_staff_agents(
         Dictionary mapping StaffRole to StaffAgent instances
 
     Example:
-        >>> config = WARGATEConfig(model_name="gpt-4.1")
+        >>> config = WARGATEConfig(model_name="gpt-5.1")
         >>> staff = create_all_staff_agents(config)
         >>> j2_response = staff[StaffRole.J2].invoke("Assess the threat")
     """
@@ -1957,7 +1966,7 @@ Prepared by: PROJECT WARGATE Joint Staff Planning System
 
 def run_joint_staff_planning(
     scenario_text: str,
-    model_name: str = "gpt-4.1",
+    model_name: str = "gpt-5.1",
     temperature: float = 0.7,
     verbose: bool = True,
     api_key: str | None = None,
@@ -1976,7 +1985,7 @@ def run_joint_staff_planning(
 
     Args:
         scenario_text: The operational scenario to plan for
-        model_name: OpenAI model name (default: "gpt-4.1")
+        model_name: OpenAI model name (default: "gpt-5.1")
         temperature: LLM temperature (default: 0.7)
         verbose: Enable verbose output (default: True)
         api_key: OpenAI API key (optional, uses env var if not provided)
@@ -2660,7 +2669,7 @@ Issue the final, unified OPERATION ORDER that integrates:
 
 def run_wargate_planning(
     scenario: str,
-    model_name: str = "gpt-4.1",
+    model_name: str = "gpt-5.1",
     temperature: float = 0.7,
     verbose: bool = True,
     api_key: str | None = None,
@@ -2670,7 +2679,7 @@ def run_wargate_planning(
 
     Args:
         scenario: The operational scenario to plan for
-        model_name: OpenAI model name (default: "gpt-4.1")
+        model_name: OpenAI model name (default: "gpt-5.1")
         temperature: LLM temperature (default: 0.7)
         verbose: Enable verbose output (default: True)
         api_key: OpenAI API key (optional, uses env var if not provided)
@@ -2685,7 +2694,7 @@ def run_wargate_planning(
         ... The JFC has been directed to prepare options for deterrence and,
         ... if deterrence fails, defense of the allied nation.
         ... '''
-        >>> result = run_wargate_planning(scenario, model_name="gpt-4.1")
+        >>> result = run_wargate_planning(scenario, model_name="gpt-5.1")
         >>> print(result)
     """
     config = WARGATEConfig(
@@ -2713,7 +2722,7 @@ def main():
         epilog="""
 Example usage:
   python wargate.py --scenario "A near-peer adversary has massed forces..."
-  python wargate.py --scenario-file scenario.txt --model gpt-4.1
+  python wargate.py --scenario-file scenario.txt --model gpt-5.1
   python wargate.py --scenario "..." --temperature 0.5 --quiet
   python wargate.py --legacy  # Use legacy orchestrator instead of new controller
         """
@@ -2734,8 +2743,8 @@ Example usage:
     parser.add_argument(
         "--model", "-m",
         type=str,
-        default="gpt-4.1",
-        help="OpenAI model name (default: gpt-4.1)"
+        default="gpt-5.1",
+        help="OpenAI model name (default: gpt-5.1)"
     )
 
     parser.add_argument(
@@ -2872,7 +2881,7 @@ if __name__ == "__main__":
     # Set verbose=False for clean output without agent reasoning traces
     result = run_joint_staff_planning(
         scenario_text=scenario,
-        model_name="gpt-4.1",
+        model_name="gpt-5.1",
         temperature=0.7,
         verbose=False,  # False = clean output, True = show progress
     )
