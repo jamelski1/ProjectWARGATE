@@ -1655,7 +1655,7 @@ def render_sidebar():
         return {
             "model_name": model_name,
             "temperature": temperature,
-            "persona_seed": persona_seed if persona_seed > 0 else None,
+            "persona_seed": persona_seed if persona_seed is not None and persona_seed > 0 else None,
             "scenario": scenario,
             "run_clicked": run_clicked,
         }
