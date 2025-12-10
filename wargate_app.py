@@ -1283,49 +1283,27 @@ def render_turns_incrementally(
     container,
     delay: float = 0.0,
     scrollable: bool = True,
-    show_typing_indicator: bool = False,
-    next_speaker: str = "",
-    next_role: str = "",
 ) -> None:
     """
     Render a list of dialogue turns into a Streamlit container.
 
-    This function is used to re-render all accumulated turns after
-    each new turn is added (since st.empty() replaces its contents).
-    Now supports showing a typing indicator for the next speaker.
+    This function re-renders all accumulated turns after each new turn
+    is added. Typing indicator is handled separately in its own container
+    to prevent flashing when dialogue is re-rendered.
 
     Args:
         turns: List of DialogueTurn objects to render
-        container: Streamlit container (from st.empty() or st.container())
+        container: Streamlit container (should be st.empty() for replacement)
         delay: Optional delay between renders for visual effect
         scrollable: Whether to wrap in a scrollable container (default True)
-        show_typing_indicator: Whether to show "X is typing..." after turns
-        next_speaker: Name of the next speaker for typing indicator
-        next_role: Role display for the next speaker
     """
-    with container:
+    with container.container():
         if scrollable:
             st.markdown('<div class="dialogue-scroll-area">', unsafe_allow_html=True)
 
         st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
         for turn in turns:
             render_dialogue_bubble_from_turn(turn)
-
-        # Show typing indicator if requested
-        if show_typing_indicator and next_speaker:
-            role_text = f" ({next_role})" if next_role else ""
-            st.markdown(f"""
-            <div class="typing-indicator">
-                <div class="typing-indicator-content">
-                    <span><strong>{next_speaker}</strong>{role_text} is typing</span>
-                    <div class="typing-indicator-dots">
-                        <span></span>
-                        <span></span>
-                        <span></span>
-                    </div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
 
         st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1637,6 +1615,44 @@ def render_typing_indicator(
         </div>
         """
         st.markdown(html, unsafe_allow_html=True)
+
+
+def show_typing_indicator(container, speaker_name: str, role_display: str = "") -> None:
+    """
+    Show a typing indicator in the given container (should be st.empty()).
+
+    This uses container.markdown() directly so the indicator can be easily
+    cleared without affecting other containers.
+
+    Args:
+        container: Streamlit empty container to render in
+        speaker_name: Name of the speaker (e.g., "COL Young")
+        role_display: Optional role display (e.g., "J2 - Intelligence")
+    """
+    role_text = f" ({role_display})" if role_display else ""
+    html = f"""
+    <div class="typing-indicator">
+        <div class="typing-indicator-content">
+            <span><strong>{speaker_name}</strong>{role_text} is typing</span>
+            <div class="typing-indicator-dots">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </div>
+    """
+    container.markdown(html, unsafe_allow_html=True)
+
+
+def clear_typing_indicator(container) -> None:
+    """
+    Clear the typing indicator from the container.
+
+    Args:
+        container: Streamlit empty container to clear
+    """
+    container.empty()
 
 
 def render_turns_with_typing_animation(
@@ -3346,6 +3362,10 @@ def run_phase_with_live_dialogue(
     # Get prior context from previous phases
     prior_context = st.session_state.prior_context
 
+    # Create separate containers for dialogue and typing indicator
+    # This prevents flashing - typing indicator can be cleared without affecting dialogue
+    typing_container = st.empty()
+
     # Track live turns for incremental rendering
     live_turns: list[DialogueTurn] = []
     current_substep = 'a'
@@ -3360,23 +3380,22 @@ def run_phase_with_live_dialogue(
             micro_progress_container.empty()
             is_first_turn_in_substep = False
 
-        # Show typing indicator briefly before the actual turn
-        render_turns_incrementally(
-            live_turns,
-            dialogue_container,
-            delay=0,
-            scrollable=True,
-            show_typing_indicator=True,
-            next_speaker=turn.get('speaker', 'Staff'),
-            next_role=turn.get('role_display', ''),
+        # 1) Show typing indicator in SEPARATE container
+        show_typing_indicator(
+            typing_container,
+            turn.get('speaker', 'Staff'),
+            turn.get('role_display', ''),
         )
         time.sleep(0.35)  # Brief pause to see typing indicator
 
-        # Now add the turn and render without indicator
+        # 2) Add the turn to our list
         live_turns.append(turn)
         st.session_state.live_turns = live_turns
 
-        # Re-render all turns in the scrollable dialogue container
+        # 3) Clear typing indicator first
+        clear_typing_indicator(typing_container)
+
+        # 4) Re-render ALL turns in dialogue container (without touching typing)
         render_turns_incrementally(live_turns, dialogue_container, delay=0, scrollable=True)
 
     def on_substep_callback(substep: str, description: str):
@@ -3396,6 +3415,8 @@ def run_phase_with_live_dialogue(
         if substep in ['c', 'd']:  # Brief and Guidance are new conversations
             live_turns = []
             st.session_state.live_turns = []
+            # Clear dialogue container for fresh start (this is the ONLY time we clear it)
+            dialogue_container.empty()
 
         # Update status with micro-progress style
         if micro_progress_container and substep in ['a', 'c']:
