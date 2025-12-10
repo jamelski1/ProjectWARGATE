@@ -41,7 +41,7 @@ Develop options for deterrence and defense.
 
 result = run_joint_staff_planning(
     scenario_text=scenario,
-    model_name="gpt-4.1",
+    model_name="gpt-5.1",
     temperature=0.7,
 )
 
@@ -58,7 +58,7 @@ python wargate.py --scenario "Your scenario description here"
 python wargate.py --scenario-file scenario.txt
 
 # Customize model and temperature
-python wargate.py -s "Scenario..." --model gpt-4.1 --temperature 0.5
+python wargate.py -s "Scenario..." --model gpt-5.1 --temperature 0.5
 
 # Use fixed seed for reproducible personas (same staff each run)
 python wargate.py -s "Scenario..." --persona-seed 42
@@ -85,7 +85,7 @@ from wargate import run_joint_staff_planning
 # Each run creates a unique staff with different branches/ranks/names
 result = run_joint_staff_planning(
     scenario_text=scenario,
-    model_name="gpt-4.1",
+    model_name="gpt-5.1",
 )
 # First run: LTG (US Army) Smith, VADM (US Navy) Jones, etc.
 # Second run: MajGen (US Marine Corps) Garcia, Col (US Air Force) Lee, etc.
@@ -99,7 +99,7 @@ from wargate import run_joint_staff_planning
 # Use a seed when you need the same staff across runs
 result = run_joint_staff_planning(
     scenario_text=scenario,
-    model_name="gpt-4.1",
+    model_name="gpt-5.1",
     persona_seed=42,  # Same seed = same personas every time
 )
 ```
@@ -218,7 +218,7 @@ For fine-grained control, use the controller directly:
 ```python
 from wargate import JointStaffPlanningController, WARGATEConfig
 
-config = WARGATEConfig(model_name="gpt-4.1", temperature=0.7)
+config = WARGATEConfig(model_name="gpt-5.1", temperature=0.7)
 controller = JointStaffPlanningController(config)
 controller.initialize()
 

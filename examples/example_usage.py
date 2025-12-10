@@ -67,7 +67,7 @@ def example_basic_usage():
 
     result = run_joint_staff_planning(
         scenario_text=scenario,
-        model_name="gpt-4.1",
+        model_name="gpt-5.1",
         temperature=0.7,
         verbose=True,
     )
@@ -89,7 +89,7 @@ def example_controller_direct():
     Example using JointStaffPlanningController directly for more control.
     """
     config = WARGATEConfig(
-        model_name="gpt-4.1",
+        model_name="gpt-5.1",
         temperature=0.5,  # Lower temperature for more focused responses
         max_tokens=4096,
         verbose=True,
@@ -129,7 +129,7 @@ def example_step_by_step():
     Example showing how to run planning steps individually for fine control.
     """
     config = WARGATEConfig(
-        model_name="gpt-4.1",
+        model_name="gpt-5.1",
         temperature=0.7,
         verbose=True,
     )
@@ -204,7 +204,7 @@ def example_single_agent_query():
     """Example of querying a single staff agent directly."""
 
     config = WARGATEConfig(
-        model_name="gpt-4.1",
+        model_name="gpt-5.1",
         temperature=0.7,
         verbose=False,
     )
@@ -278,7 +278,7 @@ def example_multi_scenario_comparison():
         # Use lower verbosity for comparison run
         result = run_joint_staff_planning(
             scenario_text=scenario_text,
-            model_name="gpt-4.1",
+            model_name="gpt-5.1",
             temperature=0.7,
             verbose=False,  # Quiet mode for bulk processing
         )
@@ -315,7 +315,7 @@ def example_with_personas():
 
     # Create a config with persona_seed for all agents
     config = WARGATEConfig(
-        model_name="gpt-4.1",
+        model_name="gpt-5.1",
         temperature=0.7,
         verbose=True,
         persona_seed=42,  # Ensures reproducible personas
@@ -358,7 +358,7 @@ def example_custom_persona():
     print(f"  Name: {persona.first_name} {persona.last_name}")
 
     # Create agent with explicit persona
-    config = WARGATEConfig(model_name="gpt-4.1", verbose=True)
+    config = WARGATEConfig(model_name="gpt-5.1", verbose=True)
     agent = create_staff_agent(StaffRole.J5, config, persona=persona)
 
     print(f"\nCreated agent: {agent}")
@@ -385,7 +385,7 @@ def example_legacy_orchestrator():
 
     result = run_wargate_planning(
         scenario=scenario,
-        model_name="gpt-4.1",
+        model_name="gpt-5.1",
         temperature=0.7,
         verbose=True,
     )
