@@ -1,15 +1,17 @@
 """
-Project WARGATE - Streamlit UI v2.0
+Project WARGATE - Streamlit UI v3.0
 
 A professional government-style interface for the multi-agent joint staff planning system.
-Implements the full 7-step Joint Planning Process (JPP) with interactive dialogue,
-PDF slide generation, and sequential phase execution.
+Implements the full 7-step Joint Planning Process (JPP) with:
+- RICH MULTI-AGENT DIALOGUE: 10+ agents participate with 2-3+ turns each
+- LIVE INCREMENTAL RENDERING: Conversations unfold in real-time
+- 4-STEP MEETING FLOW: Staff Meeting -> Slides -> Brief Commander -> Guidance
 
 How to run:
     streamlit run wargate_app.py
 
 Requirements:
-    pip install streamlit fpdf2
+    pip install streamlit fpdf2 langchain langchain-openai
 
 Environment:
     export OPENAI_API_KEY="your-api-key"
@@ -41,8 +43,23 @@ from enum import Enum
 # PDF generation
 from fpdf import FPDF
 
-# Import the structured backend
+# Import the structured backend (legacy)
 from wargate_backend import run_joint_staff_planning_structured, PlanningResult
+
+# Import the new multi-agent orchestration system
+from wargate_orchestration import (
+    MeetingOrchestrator,
+    DialogueTurn,
+    MeetingResult,
+    SlideContent,
+    BriefResult,
+    GuidanceResult,
+    PhaseResult,
+    JPPPhase as OrchestratorJPPPhase,
+    PHASE_CONFIGS,
+    create_orchestrator,
+)
+from wargate import WARGATEConfig
 
 
 # =============================================================================
@@ -893,6 +910,75 @@ def render_dialogue_sequence(dialogues: list[tuple[str, str]]) -> None:
     st.markdown('</div>', unsafe_allow_html=True)
 
 
+def render_dialogue_bubble_from_turn(turn: DialogueTurn) -> None:
+    """
+    Render a dialogue bubble directly from a DialogueTurn object.
+
+    This is the preferred method for rendering dialogue from the new
+    orchestration system, as it uses the DialogueTurn type directly.
+
+    Args:
+        turn: DialogueTurn object from the orchestrator
+    """
+    # Map branch to CSS class
+    branch_class_map = {
+        "US Army": "army",
+        "US Navy": "navy",
+        "US Air Force": "air-force",
+        "US Marine Corps": "marine-corps",
+        "US Space Force": "space-force",
+        "US Coast Guard": "coast-guard",
+    }
+    branch_class = branch_class_map.get(turn.get("branch", ""), "joint")
+    commander_class = "commander" if turn.get("is_commander", False) else ""
+
+    # Format the text content - convert markdown to HTML-safe format
+    content = turn.get("text", "")
+    # Wrap in paragraph tags if not already formatted
+    if not content.startswith("<p>") and not content.startswith("<"):
+        content = f"<p>{content}</p>"
+
+    html = f"""
+    <div class="dialogue-bubble {branch_class} {commander_class}">
+        <div class="dialogue-header">
+            <span class="dialogue-badge {branch_class}">{turn.get('branch', 'Joint')}</span>
+            <span class="dialogue-rank">{turn.get('rank', '')} {turn.get('speaker', 'Unknown').replace(turn.get('rank', ''), '').strip()}</span>
+            <span class="dialogue-role">{turn.get('role_display', turn.get('role', 'Staff'))}</span>
+        </div>
+        <div class="dialogue-content">
+            {content}
+        </div>
+    </div>
+    """
+    st.markdown(html, unsafe_allow_html=True)
+
+
+def render_turns_incrementally(
+    turns: list[DialogueTurn],
+    container,
+    delay: float = 0.0
+) -> None:
+    """
+    Render a list of dialogue turns into a Streamlit container.
+
+    This function is used to re-render all accumulated turns after
+    each new turn is added (since st.empty() replaces its contents).
+
+    Args:
+        turns: List of DialogueTurn objects to render
+        container: Streamlit container (from st.empty() or st.container())
+        delay: Optional delay between renders for visual effect
+    """
+    with container:
+        st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
+        for turn in turns:
+            render_dialogue_bubble_from_turn(turn)
+        st.markdown('</div>', unsafe_allow_html=True)
+
+    if delay > 0:
+        time.sleep(delay)
+
+
 # =============================================================================
 # PDF SLIDE DECK GENERATION
 # =============================================================================
@@ -1110,6 +1196,7 @@ JPP_PHASE_INFO = {
 def init_session_state():
     """Initialize all session state variables."""
     defaults = {
+        # Legacy planning result
         "planning_result": None,
         "scenario_text": "",
         "is_running": False,
@@ -1117,14 +1204,40 @@ def init_session_state():
         "phase_outputs": {},
         "dialogue_history": [],
         "pdf_slides": {},
-        "model_name": "gpt-4.1",
+        "model_name": "gpt-4o",
         "temperature": 0.7,
         "persona_seed": 0,
+        # New orchestration state
+        "orchestrator": None,
+        "live_turns": [],           # Current live dialogue turns
+        "current_substep": None,    # 'a', 'b', 'c', or 'd'
+        "substep_status": "",       # Status message for current substep
+        "phase_results": {},        # PhaseResult objects by phase name
+        "prior_context": "",        # Accumulated context from prior phases
     }
 
     for key, default in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = default
+
+
+def get_or_create_orchestrator() -> MeetingOrchestrator:
+    """Get the cached orchestrator or create a new one."""
+    if st.session_state.orchestrator is None:
+        st.session_state.orchestrator = create_orchestrator(
+            model_name=st.session_state.model_name,
+            temperature=st.session_state.temperature,
+            persona_seed=st.session_state.persona_seed if st.session_state.persona_seed > 0 else None,
+        )
+    return st.session_state.orchestrator
+
+
+def reset_orchestrator():
+    """Reset the orchestrator (e.g., when settings change)."""
+    st.session_state.orchestrator = None
+    st.session_state.live_turns = []
+    st.session_state.phase_results = {}
+    st.session_state.prior_context = ""
 
 
 # =============================================================================
@@ -1245,9 +1358,18 @@ def render_sidebar():
 
         with col2:
             if st.button("RESET", use_container_width=True):
+                # Reset all planning state
                 for key in ["planning_result", "scenario_text", "phase_outputs",
-                           "dialogue_history", "pdf_slides", "current_phase"]:
-                    st.session_state[key] = None if key != "phase_outputs" else {}
+                           "dialogue_history", "pdf_slides", "current_phase",
+                           "orchestrator", "live_turns", "phase_results", "prior_context"]:
+                    if key in ["phase_outputs", "pdf_slides", "phase_results"]:
+                        st.session_state[key] = {}
+                    elif key in ["dialogue_history", "live_turns"]:
+                        st.session_state[key] = []
+                    elif key == "prior_context":
+                        st.session_state[key] = ""
+                    else:
+                        st.session_state[key] = None
                 st.rerun()
 
         # API status
@@ -1285,18 +1407,41 @@ def render_phase_section(
         if is_complete and phase.name in st.session_state.phase_outputs:
             output = st.session_state.phase_outputs[phase.name]
 
+            # Check if we have new PhaseResult format
+            phase_result = output.get("phase_result") if isinstance(output, dict) else None
+
             # Sub-tabs for each sub-step
             tabs = st.tabs(["Staff Meeting", "Slides", "Brief Commander", "Commander Guidance"])
 
             with tabs[0]:
                 st.subheader("Staff Meeting Dialogue")
-                if "dialogues" in output:
+
+                # Try to use PhaseResult format first (new format)
+                if phase_result and "meeting" in phase_result:
+                    meeting_turns = phase_result["meeting"]["turns"]
+                    turn_count = len(meeting_turns)
+                    st.caption(f"{turn_count} dialogue turns from {len(set(t['role'] for t in meeting_turns))} staff agents")
+
+                    for turn in meeting_turns:
+                        render_dialogue_bubble_from_turn(turn)
+                # Fallback to legacy format
+                elif "dialogues" in output:
                     for role, content in output["dialogues"]:
                         persona = DEFAULT_PERSONAS.get(role, DEFAULT_PERSONAS["commander"])
                         render_dialogue_bubble(persona, content, role == "commander")
 
             with tabs[1]:
                 st.subheader("Planning Slides")
+
+                # Show slide preview if available
+                if phase_result and "slides" in phase_result:
+                    for slide in phase_result["slides"]:
+                        with st.container():
+                            st.markdown(f"**{slide['title']}**")
+                            for bullet in slide["bullets"]:
+                                st.markdown(f"- {bullet}")
+                            st.markdown("---")
+
                 if "pdf" in output:
                     st.download_button(
                         f"Download {phase_name} Slides (PDF)",
@@ -1308,14 +1453,58 @@ def render_phase_section(
 
             with tabs[2]:
                 st.subheader("Briefing to Commander")
-                if "brief" in output:
+
+                # Try PhaseResult format first
+                if phase_result and "brief" in phase_result:
+                    brief_turns = phase_result["brief"]["turns"]
+                    for turn in brief_turns:
+                        render_dialogue_bubble_from_turn(turn)
+
+                    # Show Q&A summary
+                    if phase_result["brief"]["questions_asked"]:
+                        st.markdown("#### Commander's Questions:")
+                        for q in phase_result["brief"]["questions_asked"]:
+                            st.markdown(f"- {q}")
+                # Fallback to legacy format
+                elif "brief" in output:
                     for role, content in output["brief"]:
                         persona = DEFAULT_PERSONAS.get(role, DEFAULT_PERSONAS["commander"])
                         render_dialogue_bubble(persona, content, role == "commander")
 
             with tabs[3]:
                 st.subheader("Commander's Guidance")
-                if "guidance" in output:
+
+                # Try PhaseResult format first
+                if phase_result and "guidance" in phase_result:
+                    guidance = phase_result["guidance"]
+
+                    # Render as commander dialogue bubble
+                    guidance_turn = {
+                        "speaker": "CMDR",
+                        "role": "commander",
+                        "role_display": "Commander",
+                        "branch": "Joint",
+                        "rank": "LTG",
+                        "text": guidance["guidance_text"],
+                        "turn_number": 1,
+                        "is_commander": True,
+                    }
+                    render_dialogue_bubble_from_turn(guidance_turn)
+
+                    # Show priority tasks
+                    if guidance.get("priority_tasks"):
+                        st.markdown("#### Priority Tasks for Next Phase:")
+                        for task in guidance["priority_tasks"]:
+                            st.markdown(f"- {task}")
+
+                    # Show section-specific guidance
+                    if guidance.get("guidance_by_section"):
+                        st.markdown("#### Guidance by Section:")
+                        for section, text in guidance["guidance_by_section"].items():
+                            st.markdown(f"**{section.upper()}:** {text}")
+
+                # Fallback to legacy format
+                elif "guidance" in output:
                     render_dialogue_bubble(
                         DEFAULT_PERSONAS["commander"],
                         output["guidance"],
@@ -1324,7 +1513,14 @@ def render_phase_section(
 
         elif is_current:
             st.info("🔄 This phase is currently being processed...")
-            st.progress(0.5)
+
+            # Show live dialogue if available
+            if st.session_state.live_turns:
+                st.markdown("### Live Dialogue:")
+                for turn in st.session_state.live_turns:
+                    render_dialogue_bubble_from_turn(turn)
+            else:
+                st.progress(0.5)
 
         else:
             st.markdown("*Awaiting completion of previous phases*")
@@ -1579,111 +1775,282 @@ def generate_full_report_pdf(result: dict) -> BytesIO:
 
 
 # =============================================================================
-# PLANNING EXECUTION
+# PLANNING EXECUTION (NEW ORCHESTRATOR-BASED)
 # =============================================================================
 
-def execute_planning_phase(
+def map_jpp_phase_to_orchestrator(phase: JPPPhase) -> OrchestratorJPPPhase:
+    """Map the app's JPPPhase enum to the orchestrator's version."""
+    mapping = {
+        JPPPhase.PLANNING_INITIATION: OrchestratorJPPPhase.PLANNING_INITIATION,
+        JPPPhase.MISSION_ANALYSIS: OrchestratorJPPPhase.MISSION_ANALYSIS,
+        JPPPhase.COA_DEVELOPMENT: OrchestratorJPPPhase.COA_DEVELOPMENT,
+        JPPPhase.COA_ANALYSIS: OrchestratorJPPPhase.COA_ANALYSIS,
+        JPPPhase.COA_COMPARISON: OrchestratorJPPPhase.COA_COMPARISON,
+        JPPPhase.COA_APPROVAL: OrchestratorJPPPhase.COA_APPROVAL,
+        JPPPhase.PLAN_DEVELOPMENT: OrchestratorJPPPhase.PLAN_DEVELOPMENT,
+    }
+    return mapping[phase]
+
+
+def run_phase_with_live_dialogue(
     phase: JPPPhase,
     scenario: str,
-    model_name: str,
-    temperature: float,
-    persona_seed: int | None
-) -> dict:
+    dialogue_container,
+    status_container,
+) -> PhaseResult | None:
     """
-    Execute a single JPP phase and return outputs.
+    Execute a single JPP phase with live incremental dialogue rendering.
 
-    Returns dict with: dialogues, pdf, brief, guidance
+    This function runs the full 4-step meeting flow (a-d) for a phase,
+    rendering each dialogue turn as it happens.
+
+    Args:
+        phase: The JPP phase to execute
+        scenario: The operational scenario text
+        dialogue_container: Streamlit container for live dialogue
+        status_container: Streamlit container for status messages
+
+    Returns:
+        PhaseResult with all phase outputs, or None on error
     """
-    phase_info = JPP_PHASE_INFO[phase]
+    orchestrator = get_or_create_orchestrator()
+    orchestrator_phase = map_jpp_phase_to_orchestrator(phase)
 
-    # Simulate phase execution (in real implementation, this calls the backend)
-    # For now, generate placeholder content
+    # Get prior context from previous phases
+    prior_context = st.session_state.prior_context
 
+    # Track live turns for incremental rendering
+    live_turns: list[DialogueTurn] = []
+
+    def on_turn_callback(turn: DialogueTurn):
+        """Called for each dialogue turn - renders incrementally."""
+        live_turns.append(turn)
+        st.session_state.live_turns = live_turns
+
+        # Re-render all turns in the dialogue container
+        with dialogue_container.container():
+            st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
+            for t in live_turns:
+                render_dialogue_bubble_from_turn(t)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    def on_substep_callback(substep: str, description: str):
+        """Called when starting a new substep."""
+        st.session_state.current_substep = substep
+        st.session_state.substep_status = description
+        with status_container:
+            substep_names = {'a': 'Staff Meeting', 'b': 'Slide Generation', 'c': 'Commander Brief', 'd': 'Commander Guidance'}
+            st.info(f"**Step {phase.value}{substep}**: {substep_names.get(substep, substep)} - {description}")
+
+    try:
+        # Clear live turns for this phase
+        live_turns = []
+        st.session_state.live_turns = []
+
+        # Run the full phase with live callbacks
+        phase_result = orchestrator.run_full_phase(
+            phase=orchestrator_phase,
+            scenario=scenario,
+            prior_context=prior_context,
+            on_turn_callback=on_turn_callback,
+            on_substep_callback=on_substep_callback,
+            turn_delay=0.2,  # Small delay for visual effect
+        )
+
+        # Update prior context for next phase
+        if phase_result:
+            # Add this phase's transcript and guidance to context
+            meeting_transcript = phase_result['meeting']['transcript']
+            guidance_text = phase_result['guidance']['guidance_text']
+            st.session_state.prior_context += f"\n\n=== {phase_result['phase_name']} ===\n{meeting_transcript[:2000]}\n\nCommander Guidance: {guidance_text[:500]}"
+
+        return phase_result
+
+    except Exception as e:
+        with status_container:
+            st.error(f"Error during {phase.name}: {str(e)}")
+        st.exception(e)
+        return None
+
+
+def convert_phase_result_to_legacy_format(phase_result: PhaseResult) -> dict:
+    """Convert PhaseResult to the legacy format used by render_phase_section."""
+    if not phase_result:
+        return {}
+
+    # Convert meeting turns to legacy dialogue format
     dialogues = []
+    for turn in phase_result['meeting']['turns']:
+        role_key = turn.get('role', 'commander')
+        content = f"<p>{turn.get('text', '')}</p>"
+        dialogues.append((role_key, content))
+
+    # Convert brief turns to legacy format
     brief = []
+    for turn in phase_result['brief']['turns']:
+        role_key = turn.get('role', 'commander')
+        content = f"<p>{turn.get('text', '')}</p>"
+        brief.append((role_key, content))
 
-    # Generate staff meeting dialogue
-    if phase == JPPPhase.PLANNING_INITIATION:
-        dialogues = [
-            ("j5_plans", f"<p>Sir, we've received the strategic guidance. Let me outline the planning parameters for {phase_info['name']}.</p><p>Key constraints include timeline and available forces.</p>"),
-            ("j2_intelligence", "<p>I'll provide initial threat assessment. We're seeing indicators of adversary activity in the region.</p>"),
-            ("j3_operations", "<p>Roger. I'm coordinating with component commands for initial force laydown options.</p>"),
-        ]
-        brief = [
-            ("j5_plans", "<p>Commander, we've completed initial planning setup. Key assumptions are documented.</p>"),
-            ("j2_intelligence", "<p>Initial threat picture shows moderate risk in the AO.</p>"),
-        ]
-        guidance = "<p>Proceed with mission analysis. I want options that minimize risk to civilians while achieving objectives. Keep me informed of any significant intelligence updates.</p>"
+    # Generate PDF from slides
+    slide_sections = {}
+    for slide in phase_result['slides']:
+        slide_sections[slide['title']] = slide['bullets']
 
-    else:
-        # Generic phase output
-        dialogues = [
-            ("j5_plans", f"<p>Initiating {phase_info['name']} phase. Staff sections, provide your inputs.</p>"),
-            ("j3_operations", f"<p>Operations assessment for {phase_info['name']} is underway.</p>"),
-            ("j2_intelligence", "<p>Intel update: Situation remains consistent with previous assessment.</p>"),
-        ]
-        brief = [
-            ("j5_plans", f"<p>Commander, {phase_info['name']} phase complete. Key outputs are ready for review.</p>"),
-        ]
-        guidance = f"<p>Good work on {phase_info['name']}. Proceed to the next phase. Continue coordinating across staff sections.</p>"
+    phase_name = phase_result['phase_name']
+    phase_num = {
+        "Planning Initiation": 1,
+        "Mission Analysis": 2,
+        "COA Development": 3,
+        "COA Analysis & Wargaming": 4,
+        "COA Comparison": 5,
+        "COA Approval": 6,
+        "Plan/Order Development": 7,
+    }.get(phase_name, 1)
 
-    # Generate PDF slides
-    pdf_content = generate_phase_slides(
-        phase_info["name"],
-        phase.value,
-        {output: f"Content for {output}" for output in phase_info["outputs"]}
-    )
+    pdf_content = generate_phase_slides(phase_name, phase_num, slide_sections)
 
     return {
         "dialogues": dialogues,
         "pdf": pdf_content,
         "brief": brief,
-        "guidance": guidance,
+        "guidance": f"<p>{phase_result['guidance']['guidance_text']}</p>",
+        "phase_result": phase_result,  # Keep original for advanced use
     }
 
 
-def run_full_planning(scenario: str, model_name: str, temperature: float, persona_seed: int | None):
-    """Run the full planning process through all phases."""
+def run_single_phase_interactive(phase: JPPPhase, scenario: str) -> bool:
+    """
+    Run a single phase interactively with live dialogue rendering.
 
-    # Run backend planning
-    progress_bar = st.progress(0, text="Initializing planning process...")
-    status = st.empty()
+    This is called when the user clicks "Run Phase X" button.
+    """
+    st.session_state.is_running = True
+    st.session_state.current_phase = phase
 
-    def update_progress(step_name: str, step_num: int, total_steps: int):
-        progress = step_num / total_steps
-        progress_bar.progress(progress, text=f"Step {step_num}/{total_steps}: {step_name}")
-        status.info(f"Processing: {step_name}...")
+    # Create containers for live updates
+    phase_info = JPP_PHASE_INFO[phase]
+
+    st.markdown(f"## Running: Step {phase.value} - {phase_info['name']}")
+
+    status_container = st.empty()
+    dialogue_container = st.empty()
+
+    with status_container:
+        st.info(f"Starting {phase_info['name']}... Staff agents are assembling.")
 
     try:
-        # Run the backend planning
-        result = run_joint_staff_planning_structured(
-            scenario_text=scenario,
-            model_name=model_name,
-            temperature=temperature,
-            verbose=False,
-            persona_seed=persona_seed,
-            progress_callback=update_progress
+        # Run the phase with live dialogue
+        phase_result = run_phase_with_live_dialogue(
+            phase=phase,
+            scenario=scenario,
+            dialogue_container=dialogue_container,
+            status_container=status_container,
         )
 
-        st.session_state.planning_result = result
+        if phase_result:
+            # Convert to legacy format and store
+            legacy_output = convert_phase_result_to_legacy_format(phase_result)
+            st.session_state.phase_outputs[phase.name] = legacy_output
+            st.session_state.phase_results[phase.name] = phase_result
 
-        # Generate phase outputs from result
-        for phase in JPPPhase:
-            phase_output = execute_planning_phase(
-                phase, scenario, model_name, temperature, persona_seed
+            with status_container:
+                st.success(f"{phase_info['name']} complete!")
+
+            st.session_state.is_running = False
+            return True
+        else:
+            st.session_state.is_running = False
+            return False
+
+    except Exception as e:
+        with status_container:
+            st.error(f"Error: {str(e)}")
+        st.session_state.is_running = False
+        return False
+
+
+def run_full_planning_orchestrated(scenario: str) -> bool:
+    """
+    Run all 7 JPP phases sequentially with the new orchestrator.
+
+    This replaces the legacy run_full_planning function.
+    """
+    st.session_state.is_running = True
+
+    # Create containers for live updates
+    progress_bar = st.progress(0, text="Initializing multi-agent planning process...")
+    status_container = st.empty()
+    dialogue_container = st.empty()
+
+    phases = list(JPPPhase)
+    total_phases = len(phases)
+
+    try:
+        for idx, phase in enumerate(phases):
+            phase_info = JPP_PHASE_INFO[phase]
+
+            # Update progress
+            progress = idx / total_phases
+            progress_bar.progress(progress, text=f"Phase {idx + 1}/{total_phases}: {phase_info['name']}")
+
+            with status_container:
+                st.info(f"Starting Phase {idx + 1}: {phase_info['name']}")
+
+            # Clear dialogue for new phase
+            st.session_state.live_turns = []
+
+            # Run the phase
+            phase_result = run_phase_with_live_dialogue(
+                phase=phase,
+                scenario=scenario,
+                dialogue_container=dialogue_container,
+                status_container=status_container,
             )
-            st.session_state.phase_outputs[phase.name] = phase_output
 
-        progress_bar.progress(1.0, text="Planning complete!")
-        status.success("All phases complete!")
+            if phase_result:
+                # Store results
+                legacy_output = convert_phase_result_to_legacy_format(phase_result)
+                st.session_state.phase_outputs[phase.name] = legacy_output
+                st.session_state.phase_results[phase.name] = phase_result
+            else:
+                st.error(f"Phase {phase_info['name']} failed. Stopping.")
+                st.session_state.is_running = False
+                return False
 
+        progress_bar.progress(1.0, text="All phases complete!")
+        with status_container:
+            st.success("Joint Planning Process complete! All 7 phases executed successfully.")
+
+        st.session_state.is_running = False
         return True
 
     except Exception as e:
         progress_bar.empty()
-        status.error(f"Error: {str(e)}")
+        with status_container:
+            st.error(f"Error: {str(e)}")
         st.exception(e)
+        st.session_state.is_running = False
         return False
+
+
+# Legacy function - kept for backward compatibility
+def run_full_planning(scenario: str, model_name: str, temperature: float, persona_seed: int | None):
+    """
+    Legacy planning function - now redirects to orchestrated version.
+
+    For the legacy backend, use run_joint_staff_planning_structured directly.
+    """
+    # Update session state with settings
+    st.session_state.model_name = model_name
+    st.session_state.temperature = temperature
+    st.session_state.persona_seed = persona_seed
+
+    # Reset orchestrator to use new settings
+    reset_orchestrator()
+
+    # Run the new orchestrated version
+    return run_full_planning_orchestrated(scenario)
 
 
 # =============================================================================
