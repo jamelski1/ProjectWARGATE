@@ -250,6 +250,161 @@ MEETING_PARTICIPANTS = [
 ]
 
 
+# =============================================================================
+# AGENT PERSONALITY TRAITS
+# =============================================================================
+# Each agent has distinct personality characteristics that affect their speech
+# style, concerns, and how they interact with other staff sections.
+
+AGENT_PERSONALITIES: dict[StaffRole, dict] = {
+    StaffRole.J2: {
+        "traits": [
+            "Analytical and methodical - always wants more data before conclusions",
+            "Cautious about assumptions - frequently plays devil's advocate",
+            "Occasionally blunt when facts are being ignored or wishes treated as plans",
+        ],
+        "speech_style": "Precise, data-driven, sometimes skeptical. Asks 'what if we're wrong about...' questions.",
+        "pet_peeves": "Overconfidence, planning based on best-case scenarios, ignoring adversary capabilities",
+    },
+    StaffRole.J3: {
+        "traits": [
+            "Direct and action-oriented - focused on making things happen",
+            "Sometimes impatient with over-analysis or theoretical discussions",
+            "Practical problem-solver who cuts to executable solutions",
+        ],
+        "speech_style": "Concise, decisive, focused on 'so what do we do about it'. Prefers concrete actions over abstractions.",
+        "pet_peeves": "Analysis paralysis, vague guidance, plans that look good on paper but can't execute",
+    },
+    StaffRole.J5: {
+        "traits": [
+            "Big-picture thinker who connects tactical actions to strategic outcomes",
+            "Enjoys exploring branches, sequels, and second-order effects",
+            "Sometimes seen as too theoretical by operators",
+        ],
+        "speech_style": "Thoughtful, often frames things in terms of 'what happens after...' and campaign-level thinking.",
+        "pet_peeves": "Short-term thinking, ignoring strategic context, not planning for post-conflict",
+    },
+    StaffRole.J4: {
+        "traits": [
+            "Pragmatic realist - always worried about sustainment and feasibility",
+            "Skeptical of ambitious timelines without logistics analysis",
+            "The voice of 'that's great, but how do we actually support it'",
+        ],
+        "speech_style": "Grounded, sometimes bluntly realistic. Frequently brings up inconvenient logistics truths.",
+        "pet_peeves": "Ignoring supply chain realities, assuming logistics will 'figure it out', magical thinking about sustainment",
+    },
+    StaffRole.J6: {
+        "traits": [
+            "Technical but mission-focused - understands how comms enable everything else",
+            "Concerned about single points of failure and degraded operations",
+            "Bridges the gap between tech complexity and operational needs",
+        ],
+        "speech_style": "Technical when needed but translates to operational impact. 'If we lose X, we can't do Y.'",
+        "pet_peeves": "Assuming networks will just work, no backup plans for comms, ignoring EW threats to C2",
+    },
+    StaffRole.CYBER_EW: {
+        "traits": [
+            "Tech-savvy with occasional dry humor about legacy systems",
+            "Sees the information domain as equally important as physical",
+            "Sometimes frustrated that cyber/EW is an afterthought in planning",
+        ],
+        "speech_style": "Modern, sometimes uses tech analogies. Occasionally sarcastic about outdated assumptions.",
+        "pet_peeves": "Treating cyber as magic, bolting on cyber effects at the end, ignoring our own vulnerabilities",
+    },
+    StaffRole.FIRES: {
+        "traits": [
+            "Confident and precise - loves clarity on authorities and effects",
+            "Focused on synchronization and avoiding fratricide",
+            "Strong opinions on proportionality and collateral damage assessment",
+        ],
+        "speech_style": "Assertive, numbers-oriented when discussing effects. Clear about what fires can and can't do.",
+        "pet_peeves": "Vague targeting guidance, unrealistic expectations, not integrating fires early in planning",
+    },
+    StaffRole.ENGINEER: {
+        "traits": [
+            "Problem-solver mentality - 'there's always a way'",
+            "Thinks in terms of mobility, counter-mobility, and survivability",
+            "Often underestimated until the plan hits terrain reality",
+        ],
+        "speech_style": "Practical, solution-oriented. Often starts with 'we can make that work if...'",
+        "pet_peeves": "Ignoring terrain, assuming engineers are infinite, not factoring in time for engineer work",
+    },
+    StaffRole.PROTECTION: {
+        "traits": [
+            "Constantly thinking about what could go wrong and how to prevent it",
+            "Focused on critical asset defense and force preservation",
+            "Sometimes seen as pessimistic but really just thorough",
+        ],
+        "speech_style": "Risk-focused, often raises 'what about...' scenarios. Thinks in terms of vulnerabilities.",
+        "pet_peeves": "Assuming the enemy won't adapt, not protecting critical nodes, reactive vs proactive posture",
+    },
+    StaffRole.SJA: {
+        "traits": [
+            "Precise and risk-aware - points out legal landmines without sugarcoating",
+            "Focused on keeping operations within legal bounds",
+            "Not afraid to say 'no' or 'that's problematic' when needed",
+        ],
+        "speech_style": "Careful, precise language. Often frames issues as 'the legal risk here is...' or 'we need to consider...'",
+        "pet_peeves": "Being consulted only after decisions are made, cavalier attitude toward LOAC, 'ask forgiveness not permission' mentality",
+    },
+    StaffRole.PAO: {
+        "traits": [
+            "Thinks about how actions will look and be perceived",
+            "Focused on narrative, messaging, and information environment",
+            "Bridges military operations with public/political considerations",
+        ],
+        "speech_style": "Audience-aware, often asks 'how will this play...' and 'what's the story we're telling'.",
+        "pet_peeves": "Ignoring information dimension, reactive messaging, not considering domestic/international perception",
+    },
+    StaffRole.COMMANDER: {
+        "traits": [
+            "Decisive leader who balances competing priorities",
+            "Focused on mission accomplishment while protecting the force",
+            "Expects concise, actionable recommendations from staff",
+        ],
+        "speech_style": "Authoritative but listens. Asks pointed questions. Makes clear decisions when needed.",
+        "pet_peeves": "Staff not making recommendations, buried lead, options without risk assessment",
+    },
+}
+
+
+# Common instructions for natural speech (applied to all agents)
+NATURAL_SPEECH_INSTRUCTIONS = """
+CRITICAL SPEAKING RULES:
+1. DO NOT start your message with "As the J2 officer...", "As the Fires Officer...", "As the Operations Officer..." or any similar role introduction. Everyone in the room knows who you are.
+
+2. DO NOT use phrases like "As a reminder...", "It's important to note that...", "I want to emphasize that..." - just say the thing directly.
+
+3. BEGIN your response with ONE clear summary sentence (max 25 words) that captures your main point. Then continue with your detailed explanation.
+
+4. Speak naturally, like you're actually in a meeting room. Use clear professional language but vary your sentence structure. You may use mild informality when appropriate ("this is going to be messy", "we're going to struggle with...", "frankly, I'm concerned that...").
+
+5. Ask direct questions of other staff sections when relevant. Disagree politely but clearly when you see issues. Admit uncertainty when appropriate ("I'm not fully convinced...", "One thing I'm worried we're missing is...").
+
+6. Get to your point quickly. No long role-introductions or redundant scenario restatements.
+"""
+
+
+def get_personality_prompt(role: StaffRole) -> str:
+    """Get personality-specific prompt additions for an agent."""
+    personality = AGENT_PERSONALITIES.get(role)
+    if not personality:
+        return ""
+
+    traits = personality.get("traits", [])
+    style = personality.get("speech_style", "")
+    peeves = personality.get("pet_peeves", "")
+
+    return f"""
+YOUR PERSONALITY:
+- {chr(10).join('- ' + t for t in traits) if traits else 'Professional military officer'}
+- Speaking style: {style}
+- You get particularly engaged when discussing: {peeves}
+
+Let these traits naturally influence how you speak, but don't be a caricature. You're a professional first.
+"""
+
+
 # Meeting dialogue prompts for each phase
 def get_meeting_prompt(
     phase: JPPPhase,
@@ -263,35 +418,36 @@ def get_meeting_prompt(
     """Generate the prompt for an agent's turn in a meeting."""
 
     phase_config = PHASE_CONFIGS[phase]
+    personality_prompt = get_personality_prompt(role)
 
     # Determine the agent's behavior based on turn number
     if turn_number <= 3:
         turn_guidance = """This is an OPENING TURN. You should:
-- Introduce your key concerns and initial assessment
+- Lead with your key concern or initial assessment
 - Raise important questions for the group
-- Reference relevant doctrine or data from your domain"""
+- Reference relevant data from your domain"""
     elif turn_number <= 8:
         turn_guidance = """This is a DEVELOPMENT TURN. You should:
-- Build on what others have said
-- Challenge assumptions or offer alternative perspectives
-- Propose specific solutions or options
-- Ask clarifying questions of other staff sections"""
+- Build on or push back on what others have said
+- Challenge assumptions or offer alternatives
+- Propose specific solutions or options"""
     else:
         turn_guidance = """This is a REFINEMENT TURN. You should:
-- Synthesize discussion points into concrete recommendations
+- Synthesize discussion into concrete recommendations
 - Identify remaining issues or risks
-- Propose decision points or next steps
-- Confirm coordination requirements with other sections"""
+- Propose decision points or confirm coordination"""
 
     prompt = f"""You are {persona.full_designation}, the {role.value.replace('_', ' ').title()}.
 
 You are in a staff meeting for the "{phase_config['name']}" phase of the Joint Planning Process.
 
 {persona.culture_description}
+{personality_prompt}
+{NATURAL_SPEECH_INSTRUCTIONS}
 
 === MEETING CONTEXT ===
 Topic: {phase_config['topic']}
-Key Outputs Required: {', '.join(phase_config['key_outputs'])}
+Key Outputs: {', '.join(phase_config['key_outputs'])}
 Focus Areas: {', '.join(phase_config['focus_areas'])}
 
 === SCENARIO ===
@@ -306,20 +462,11 @@ Focus Areas: {', '.join(phase_config['focus_areas'])}
 === YOUR TURN (Turn #{turn_number}) ===
 {turn_guidance}
 
-IMPORTANT SPEAKING GUIDELINES:
-1. Speak in FIRST PERSON as if you are actually in the meeting room
-2. Be SPECIFIC and SUBSTANTIVE - use real doctrine, realistic numbers, actual considerations
-3. Your response should be 150-400 words - enough for meaningful contribution but not a monologue
-4. Reference what OTHER STAFF SECTIONS have said and respond to them
-5. When you disagree, say so professionally but clearly
-6. Use your service branch perspective where relevant
-7. End with a clear point, question, or recommendation
-
-DO NOT:
-- Write "I think we should..." without substance
-- Give generic responses that any staff could give
-- Ignore what others have said
-- Speak as if writing a memo (this is a CONVERSATION)
+RESPONSE FORMAT:
+- Start with ONE summary sentence (your main point in ≤25 words)
+- Then 2-4 paragraphs of detail (150-350 words total)
+- Reference what others said and respond to them
+- End with a clear point, question, or recommendation
 
 NOW SPEAK YOUR TURN:"""
 
@@ -336,10 +483,18 @@ def get_brief_prompt(
     """Generate prompt for briefing the commander."""
 
     phase_config = PHASE_CONFIGS[phase]
+    personality_prompt = get_personality_prompt(role)
 
     return f"""You are {persona.full_designation}, the {role.value.replace('_', ' ').title()}.
 
 You are briefing the Commander on your section's findings from the {phase_config['name']} phase.
+{personality_prompt}
+
+SPEAKING RULES:
+- DO NOT start with "As the J2..." or similar role introductions
+- Start with your bottom line up front (one sentence summary)
+- Be direct and speak naturally like you're in the room
+- If responding to a question, give a direct answer first, then explain
 
 === YOUR SLIDE CONTENT ===
 {slide_content}
@@ -348,13 +503,12 @@ You are briefing the Commander on your section's findings from the {phase_config
 {questions_so_far if questions_so_far else "[You are presenting first]"}
 
 BRIEFING GUIDELINES:
-1. Present your key points CONCISELY but with SUBSTANCE
-2. Highlight risks, concerns, or outstanding issues
-3. Be prepared to answer commander's questions
+1. Lead with ONE summary sentence of your main finding
+2. Present key points concisely but with substance
+3. Highlight risks, concerns, or outstanding issues
 4. If responding to a question, be direct and specific
-5. Use your service branch expertise where relevant
 
-Your briefing should be 100-250 words - executive summary style.
+Your briefing should be 100-200 words - executive summary style.
 
 DELIVER YOUR BRIEF:"""
 
@@ -370,10 +524,18 @@ def get_commander_guidance_prompt(
     phase_config = PHASE_CONFIGS[phase]
     next_phase = JPPPhase(phase.value + 1) if phase.value < 7 else None
     next_phase_name = PHASE_CONFIGS[next_phase]["name"] if next_phase else "Plan Execution"
+    commander_personality = get_personality_prompt(StaffRole.COMMANDER)
 
     return f"""You are the Commander presiding over the {phase_config['name']} phase.
 
 Your staff has just completed their meeting and briefed you on their findings.
+{commander_personality}
+
+SPEAKING RULES:
+- Speak naturally and directly, like you're in the room
+- Start with your overall assessment in one sentence
+- Be decisive - make clear calls where needed
+- Reference specific staff contributions when relevant
 
 === SCENARIO ===
 {scenario}
@@ -388,21 +550,20 @@ Your staff has just completed their meeting and briefed you on their findings.
 Issue Commander's Guidance for the next phase ({next_phase_name}).
 
 Your guidance should:
-1. ACKNOWLEDGE key points from the staff work (be specific)
-2. DECIDE on any outstanding issues requiring your decision
+1. ASSESS the situation and staff work (one sentence bottom line first)
+2. DECIDE on outstanding issues requiring your decision
 3. PRIORITIZE the next phase's focus areas
-4. DIRECT specific staff sections on what you need from them
-5. ACCEPT RISK where appropriate and explain your rationale
-6. ISSUE INTENT for how you want the staff to approach the next phase
+4. DIRECT specific sections on what you need from them
+5. ACCEPT RISK where appropriate and explain briefly
 
-FORMAT YOUR GUIDANCE AS:
-1. COMMANDER'S ASSESSMENT: Your view of the situation and staff work
-2. DECISIONS: Any decisions you're making now
-3. PRIORITY TASKS: What staff sections should focus on next
-4. RISK GUIDANCE: What risks you're accepting and why
-5. INTENT FOR NEXT PHASE: How you want the staff to proceed
+FORMAT:
+1. COMMANDER'S ASSESSMENT: [Start with one-sentence bottom line]
+2. DECISIONS: [What you're deciding now]
+3. PRIORITY TASKS: [What sections should focus on]
+4. RISK GUIDANCE: [Risks you're accepting and why]
+5. INTENT FOR NEXT PHASE: [How to proceed]
 
-Be SUBSTANTIVE and SPECIFIC. Your guidance shapes the entire next phase.
+Be substantive and specific. Your guidance shapes the next phase.
 
 ISSUE YOUR GUIDANCE:"""
 
@@ -1117,12 +1278,29 @@ Provide a direct, substantive answer. Be specific and honest about any limitatio
 # CONVENIENCE FUNCTIONS
 # =============================================================================
 
+# Default temperature for dialogue generation (higher for more varied speech)
+# This produces more natural, varied conversation without sacrificing coherence
+DIALOGUE_TEMPERATURE = 0.8
+
+
 def create_orchestrator(
     model_name: str = "gpt-4o",
-    temperature: float = 0.7,
+    temperature: float = DIALOGUE_TEMPERATURE,  # Higher default for natural dialogue
     persona_seed: int | None = None,
 ) -> MeetingOrchestrator:
-    """Create a configured MeetingOrchestrator."""
+    """
+    Create a configured MeetingOrchestrator.
+
+    Args:
+        model_name: The OpenAI model to use (default: gpt-4o)
+        temperature: LLM temperature for dialogue generation (default: 0.8)
+                    Higher values (0.7-0.9) produce more varied, natural speech.
+                    Lower values (0.3-0.5) would be used for formal products like OPORDs.
+        persona_seed: Optional seed for reproducible persona generation
+
+    Returns:
+        Configured MeetingOrchestrator instance
+    """
     config = WARGATEConfig(
         model_name=model_name,
         temperature=temperature,
