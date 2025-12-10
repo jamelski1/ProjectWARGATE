@@ -4,3 +4,6 @@ backgroundColor = "#0E0E12"
 secondaryBackgroundColor = "#1A1A22"
 textColor = "#E6E6E6"
 font = "sans serif"
+
+# Sidebar theme (to fix "Invalid color" warnings)
+# Note: Streamlit will use these for sidebar styling
