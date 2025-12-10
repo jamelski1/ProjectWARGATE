@@ -20,8 +20,17 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage, BaseMessage
 from langchain_core.tools import Tool, tool
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
-from langchain.agents import AgentExecutor, create_openai_functions_agent
 from pydantic import BaseModel, Field
+
+# Handle different LangChain versions for agent imports
+try:
+    from langchain.agents import AgentExecutor, create_openai_functions_agent
+except ImportError:
+    try:
+        from langchain_community.agents import AgentExecutor, create_openai_functions_agent
+    except ImportError:
+        from langchain.agents import AgentExecutor
+        from langchain.agents.openai_functions_agent.base import create_openai_functions_agent
 
 
 # =============================================================================
