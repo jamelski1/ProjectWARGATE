@@ -23,14 +23,16 @@ from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, Huma
 from pydantic import BaseModel, Field
 
 # Handle different LangChain versions for agent imports
+# Note: create_openai_tools_agent is required for newer OpenAI models (GPT-4-turbo, GPT-4o, etc.)
+# which use the "tools" API instead of the deprecated "functions" API
 try:
-    from langchain.agents import AgentExecutor, create_openai_functions_agent
+    from langchain.agents import AgentExecutor, create_openai_tools_agent
 except ImportError:
     try:
-        from langchain_community.agents import AgentExecutor, create_openai_functions_agent
+        from langchain_community.agents import AgentExecutor, create_openai_tools_agent
     except ImportError:
         from langchain.agents import AgentExecutor
-        from langchain.agents.openai_functions_agent.base import create_openai_functions_agent
+        from langchain.agents.openai_tools_agent.base import create_openai_tools_agent
 
 
 # =============================================================================
@@ -1005,8 +1007,8 @@ class StaffAgent:
         # Build the system prompt with persona and branch culture
         self.system_prompt = self._build_system_prompt()
 
-        # Create the agent using OpenAI function calling
-        # This is the modern LangChain pattern (equivalent to AgentType.OPENAI_FUNCTIONS)
+        # Create the agent using OpenAI tools API
+        # This is the modern LangChain pattern for newer OpenAI models
         prompt = ChatPromptTemplate.from_messages([
             SystemMessage(content=self.system_prompt),
             MessagesPlaceholder(variable_name="chat_history", optional=True),
@@ -1014,9 +1016,9 @@ class StaffAgent:
             MessagesPlaceholder(variable_name="agent_scratchpad"),
         ])
 
-        # create_openai_functions_agent is the current recommended approach
-        # It creates an agent that uses OpenAI's function calling capability
-        agent = create_openai_functions_agent(llm, tools, prompt)
+        # create_openai_tools_agent is required for newer OpenAI models
+        # It creates an agent that uses OpenAI's tools API (replacing deprecated functions API)
+        agent = create_openai_tools_agent(llm, tools, prompt)
 
         # AgentExecutor wraps the agent and handles the tool-calling loop
         # Note: verbose controls whether agent reasoning is printed to stdout
