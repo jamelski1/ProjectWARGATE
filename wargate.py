@@ -677,7 +677,823 @@ class PlanningPhase(Enum):
 
 
 # =============================================================================
-# ORCHESTRATOR
+# DATA STRUCTURES FOR PLANNING OUTPUT
+# =============================================================================
+
+class COAEstimate(TypedDict):
+    """Staff estimate for a single COA."""
+    role: str
+    assessment: str
+
+
+class COAData(TypedDict):
+    """Complete data for a Course of Action."""
+    name: str
+    concept: str
+    advantages: list[str]
+    limitations: list[str]
+    second_order_effects: list[str]
+    third_order_effects: list[str]
+    staff_estimates: dict[str, str]
+
+
+class PlanningOutput(TypedDict):
+    """Structured output from the planning process."""
+    strategic_problem_statement: str
+    key_assumptions: list[str]
+    j2_intelligence_summary: str
+    commanders_intent: str
+    coas: list[COAData]
+    coa_comparison_table: str
+    recommended_coa: str
+    recommendation_rationale: str
+    major_risks: list[str]
+    mitigations: list[str]
+    legal_ethical_considerations: str
+
+
+# =============================================================================
+# JOINT STAFF PLANNING CONTROLLER
+# =============================================================================
+
+class JointStaffPlanningController:
+    """
+    Controller/Orchestrator for the joint staff planning process.
+
+    Implements the following flow:
+    1. J2 Intelligence Estimate
+    2. J5 + J3 Initial COA Development
+    3. Functional Staff Reviews (per COA)
+    4. SJA Legal/Ethics Review
+    5. Synthesis for Commander
+    6. Final Structured Output
+    """
+
+    def __init__(self, config: WARGATEConfig | None = None):
+        self.config = config or WARGATEConfig()
+        self.staff: dict[StaffRole, StaffAgent] = {}
+        self._initialized = False
+
+        # Planning artifacts
+        self.scenario: str = ""
+        self.j2_intel_summary: str = ""
+        self.coa_concepts: list[dict[str, str]] = []
+        self.coa_details: list[dict[str, Any]] = []
+        self.staff_estimates: dict[str, dict[str, str]] = {}
+        self.sja_review: str = ""
+        self.synthesis: str = ""
+        self.commanders_intent: str = ""
+
+    def initialize(self) -> None:
+        """Initialize all staff agents."""
+        if self._initialized:
+            return
+        self.staff = create_all_staff_agents(self.config)
+        self._initialized = True
+
+    def _log(self, message: str) -> None:
+        """Log a message if verbose mode is enabled."""
+        if self.config.verbose:
+            print(f"\n{'='*70}")
+            print(f"  {message}")
+            print(f"{'='*70}")
+
+    def _step_log(self, step: str, detail: str = "") -> None:
+        """Log a step within a phase."""
+        if self.config.verbose:
+            if detail:
+                print(f"\n[{step}] {detail}")
+            else:
+                print(f"\n[{step}]")
+
+    # =========================================================================
+    # STEP 1: J2 INTELLIGENCE ESTIMATE
+    # =========================================================================
+
+    def step_j2_intelligence_estimate(self, scenario: str) -> str:
+        """
+        J2 provides intelligence estimate including:
+        - Enemy situation
+        - Likely enemy COAs
+        - Key intelligence gaps
+        """
+        self._log("STEP 1: J2 INTELLIGENCE ESTIMATE")
+
+        prompt = f"""Provide a comprehensive INTELLIGENCE ESTIMATE for the following scenario:
+
+=== SCENARIO ===
+{scenario}
+================
+
+Structure your estimate as follows:
+
+1. ENEMY SITUATION
+   - Composition, disposition, and strength
+   - Recent activities and current operations
+   - Capabilities (known and assessed)
+
+2. LIKELY ENEMY COURSES OF ACTION (ECOAs)
+   - Most Likely Enemy COA (MLCOA): What the enemy will probably do
+   - Most Dangerous Enemy COA (MDCOA): The enemy action that would be most harmful to friendly forces
+   - Other possible enemy COAs
+
+3. ENEMY VULNERABILITIES
+   - Weaknesses we can exploit
+   - Critical requirements and dependencies
+
+4. KEY INTELLIGENCE GAPS
+   - What we don't know but need to know
+   - Priority Intelligence Requirements (PIRs)
+   - Recommended collection priorities
+
+5. INDICATIONS & WARNINGS
+   - Key indicators to monitor
+   - Decision points based on enemy actions
+
+Be thorough and specific. Use your retrieval tools for doctrine and threat information."""
+
+        self._step_log("J2", "Developing intelligence estimate...")
+        self.j2_intel_summary = self.staff[StaffRole.J2].invoke(prompt)
+
+        if self.config.verbose:
+            print(f"\n--- J2 INTELLIGENCE ESTIMATE ---")
+            print(self.j2_intel_summary[:1000] + "..." if len(self.j2_intel_summary) > 1000 else self.j2_intel_summary)
+
+        return self.j2_intel_summary
+
+    # =========================================================================
+    # STEP 2: J5 + J3 INITIAL COA DEVELOPMENT
+    # =========================================================================
+
+    def step_coa_development(self, scenario: str, j2_intel: str) -> list[dict[str, Any]]:
+        """
+        J5 proposes high-level COAs, J3 refines into executable descriptions.
+        """
+        self._log("STEP 2: J5 + J3 COA DEVELOPMENT")
+
+        # J5: Propose 3-4 high-level COAs (operational approaches)
+        j5_prompt = f"""Based on the scenario and intelligence estimate, develop 3-4 distinct high-level Courses of Action (COAs).
+
+=== SCENARIO ===
+{scenario}
+================
+
+=== J2 INTELLIGENCE ESTIMATE ===
+{j2_intel}
+================================
+
+For each COA, provide:
+
+1. COA NAME: A descriptive name capturing the essence of the approach
+
+2. OPERATIONAL APPROACH: The overarching concept (e.g., direct approach, indirect approach,
+   sequential operations, simultaneous operations, linear/nonlinear)
+
+3. MAIN EFFORT: Where we will concentrate combat power for decisive results
+
+4. SUPPORTING EFFORTS: How other elements support the main effort
+
+5. LINES OF OPERATION/EFFORT: The logical framework connecting tactical actions to objectives
+
+6. KEY ASSUMPTIONS: What must be true for this COA to succeed
+
+7. WHAT MAKES THIS COA DISTINCT: How it differs fundamentally from other COAs
+
+Ensure COAs are:
+- FEASIBLE: Accomplishable with available means
+- ACCEPTABLE: Worth the cost in resources and risk
+- SUITABLE: Accomplishes the mission/objectives
+- DISTINGUISHABLE: Significantly different from each other
+- COMPLETE: Incorporates all necessary elements"""
+
+        self._step_log("J5", "Developing operational approaches and COA concepts...")
+        j5_coas = self.staff[StaffRole.J5].invoke(j5_prompt)
+
+        if self.config.verbose:
+            print(f"\n--- J5 COA CONCEPTS ---")
+            print(j5_coas[:800] + "..." if len(j5_coas) > 800 else j5_coas)
+
+        # J3: Refine into executable COA descriptions
+        j3_prompt = f"""The J5 has proposed the following high-level COAs. Refine each into a more detailed,
+executable description.
+
+=== SCENARIO ===
+{scenario}
+================
+
+=== J2 INTELLIGENCE ESTIMATE ===
+{j2_intel}
+================================
+
+=== J5 COA CONCEPTS ===
+{j5_coas}
+=======================
+
+For EACH COA, add the following execution details:
+
+1. PHASING
+   - Phase 0: Shape (pre-conflict activities)
+   - Phase 1: Deter (demonstrate resolve)
+   - Phase 2: Seize Initiative (if conflict begins)
+   - Phase 3: Dominate (achieve objectives)
+   - Phase 4: Stabilize (consolidate gains)
+   - Phase 5: Enable Civil Authority (transition)
+   - Note: Not all phases may apply; describe what's relevant
+
+2. MAIN EFFORT AND SUPPORTING EFFORTS
+   - Task organization concept
+   - Force ratios at decisive points
+
+3. KEY TASKS BY PHASE
+   - Critical actions required
+
+4. DECISION POINTS
+   - When commander must decide to transition/branch
+
+5. BRANCHES AND SEQUELS
+   - Branch: Contingency options if assumptions fail
+   - Sequel: Follow-on operations after success
+
+6. SYNCHRONIZATION REQUIREMENTS
+   - How warfighting functions (fires, maneuver, protection, etc.) integrate"""
+
+        self._step_log("J3", "Refining COAs with execution details...")
+        j3_details = self.staff[StaffRole.J3].invoke(j3_prompt)
+
+        if self.config.verbose:
+            print(f"\n--- J3 COA DETAILS ---")
+            print(j3_details[:800] + "..." if len(j3_details) > 800 else j3_details)
+
+        # Store combined COA data
+        self.coa_concepts = [{"j5_concept": j5_coas, "j3_details": j3_details}]
+
+        return [{"concepts": j5_coas, "details": j3_details}]
+
+    # =========================================================================
+    # STEP 3: FUNCTIONAL STAFF REVIEWS (PER COA)
+    # =========================================================================
+
+    def step_functional_staff_reviews(
+        self,
+        scenario: str,
+        j2_intel: str,
+        coa_data: list[dict[str, Any]]
+    ) -> dict[str, str]:
+        """
+        Each functional staff section provides estimates/critiques for each COA.
+        """
+        self._log("STEP 3: FUNCTIONAL STAFF REVIEWS")
+
+        coa_context = f"""
+=== SCENARIO ===
+{scenario}
+================
+
+=== J2 INTELLIGENCE ESTIMATE ===
+{j2_intel}
+================================
+
+=== COA CONCEPTS (J5) ===
+{coa_data[0]['concepts']}
+=========================
+
+=== COA DETAILS (J3) ===
+{coa_data[0]['details']}
+========================
+"""
+
+        staff_estimates: dict[str, str] = {}
+
+        # Define review tasks for each functional staff
+        review_tasks = {
+            StaffRole.J1: """Assess PERSONNEL / MANPOWER implications for each COA:
+1. Can we man this operation with available forces?
+2. Rotation and personnel tempo impacts
+3. Casualty estimates and replacement requirements
+4. Morale and human performance factors
+5. Critical skill shortages or augmentation needs
+Provide a brief estimate per COA with your assessment of feasibility.""",
+
+            StaffRole.J4: """Assess LOGISTICS / SUSTAINMENT feasibility for each COA:
+1. Classes of supply requirements (especially Class III POL and Class V ammo)
+2. Transportation and distribution network capacity
+3. Maintenance posture and equipment readiness
+4. Critical logistics nodes and their vulnerabilities
+5. Sustainment timelines and operational reach
+Provide a brief estimate per COA with key constraints and risks.""",
+
+            StaffRole.J6: """Assess COMMUNICATIONS / C4I implications for each COA:
+1. Network architecture requirements
+2. Communications vulnerabilities and PACE planning
+3. Degraded operations procedures
+4. Spectrum management and electromagnetic considerations
+5. Cyber-physical dependencies
+Provide a brief estimate per COA with C2 resilience assessment.""",
+
+            StaffRole.CYBER_EW: """Assess CYBER / EW opportunities and risks for each COA:
+1. Offensive cyber opportunities to enable operations
+2. Defensive cyber requirements and posture
+3. Electronic warfare integration points
+4. AI-enabled threat considerations
+5. Information environment synchronization
+Provide a brief estimate per COA with key cyber/EW recommendations.""",
+
+            StaffRole.FIRES: """Assess FIRES integration and targeting for each COA:
+1. Fire support requirements by phase
+2. Priority target sets and high-value targets
+3. Fire support coordination measures needed
+4. Joint fires integration (air, land, sea, cyber)
+5. Non-kinetic effects integration
+Provide a brief estimate per COA with fires feasibility assessment.""",
+
+            StaffRole.ENGINEER: """Assess ENGINEER implications for each COA:
+1. Mobility requirements (breaching, route clearance)
+2. Counter-mobility opportunities (obstacles)
+3. Survivability requirements (protective positions)
+4. Critical infrastructure considerations
+5. General engineering requirements
+Provide a brief estimate per COA with engineer feasibility.""",
+
+            StaffRole.PROTECTION: """Assess PROTECTION requirements for each COA:
+1. Force protection posture and critical asset defense
+2. Air and Missile Defense coverage requirements
+3. CBRN threat and defensive posture
+4. Personnel recovery and CSAR planning
+5. Physical security vulnerabilities
+Provide a brief estimate per COA with protection feasibility.""",
+
+            StaffRole.PAO: """Assess INFORMATION ENVIRONMENT implications for each COA:
+1. Strategic communications considerations
+2. Public perception (domestic and international)
+3. Adversary propaganda/disinformation threats
+4. Key messages and narrative requirements
+5. Information operations integration
+Provide a brief estimate per COA with IO/PA recommendations.""",
+        }
+
+        for role, task in review_tasks.items():
+            self._step_log(role.value.upper(), f"Providing staff estimate...")
+
+            prompt = f"""{coa_context}
+
+YOUR TASK:
+{task}
+
+Structure your response with clear assessments for EACH COA. Be specific about:
+- Feasibility (GO / NO-GO / GO WITH MITIGATION)
+- Key risks or concerns
+- Required mitigations or resources
+- Your overall recommendation"""
+
+            estimate = self.staff[role].invoke(prompt)
+            staff_estimates[role.value] = estimate
+
+            if self.config.verbose:
+                print(f"\n--- {role.value.upper()} ESTIMATE ---")
+                print(estimate[:500] + "..." if len(estimate) > 500 else estimate)
+
+        self.staff_estimates = {"all_coas": staff_estimates}
+        return staff_estimates
+
+    # =========================================================================
+    # STEP 4: SJA / LEGAL / ETHICS REVIEW
+    # =========================================================================
+
+    def step_sja_review(
+        self,
+        scenario: str,
+        j2_intel: str,
+        coa_data: list[dict[str, Any]],
+        staff_estimates: dict[str, str]
+    ) -> str:
+        """
+        SJA provides legal and ethics review of all COAs.
+        """
+        self._log("STEP 4: SJA / LEGAL / ETHICS REVIEW")
+
+        # Format staff estimates for context
+        estimates_text = "\n\n".join([
+            f"### {role.upper()} ESTIMATE:\n{estimate}"
+            for role, estimate in staff_estimates.items()
+        ])
+
+        prompt = f"""Provide a comprehensive LEGAL AND ETHICS REVIEW of all proposed COAs.
+
+=== SCENARIO ===
+{scenario}
+================
+
+=== J2 INTELLIGENCE SUMMARY ===
+{j2_intel}
+===============================
+
+=== COA CONCEPTS ===
+{coa_data[0]['concepts']}
+====================
+
+=== COA DETAILS ===
+{coa_data[0]['details']}
+===================
+
+=== KEY STAFF ESTIMATES ===
+{estimates_text}
+===========================
+
+Provide your legal and ethics assessment covering:
+
+1. LAW OF ARMED CONFLICT (LOAC) / INTERNATIONAL HUMANITARIAN LAW (IHL)
+   - Distinction: Are we properly distinguishing combatants from civilians?
+   - Proportionality: Is anticipated collateral damage proportional to military advantage?
+   - Military Necessity: Are proposed actions militarily necessary?
+   - Humanity: Are we avoiding unnecessary suffering?
+
+2. RULES OF ENGAGEMENT (ROE)
+   - Are current ROE adequate for each COA?
+   - What ROE modifications or clarifications are needed?
+   - Escalation of force procedures
+
+3. AI / AUTONOMOUS SYSTEMS ETHICS
+   - Are AI-enabled systems employed within policy (DoDD 3000.09)?
+   - Human control and accountability requirements
+   - Bias and reliability concerns
+
+4. INTERNATIONAL LAW CONSIDERATIONS
+   - Sovereignty and territorial issues
+   - Treaty obligations
+   - Neutrality and third-party considerations
+
+5. SPECIFIC CONCERNS BY COA
+   - Legal red flags or showstoppers
+   - Required modifications to ensure compliance
+   - Risk areas requiring commander attention
+
+6. RECOMMENDATIONS
+   - Constraints to add to planning guidance
+   - Training or briefing requirements
+   - Legal holds or approval requirements
+
+Be direct about any legal showstoppers. Legal compliance is non-negotiable."""
+
+        self._step_log("SJA", "Conducting legal and ethics review...")
+        self.sja_review = self.staff[StaffRole.SJA].invoke(prompt)
+
+        if self.config.verbose:
+            print(f"\n--- SJA LEGAL/ETHICS REVIEW ---")
+            print(self.sja_review[:800] + "..." if len(self.sja_review) > 800 else self.sja_review)
+
+        return self.sja_review
+
+    # =========================================================================
+    # STEP 5: SYNTHESIS FOR COMMANDER
+    # =========================================================================
+
+    def step_commander_synthesis(
+        self,
+        scenario: str,
+        j2_intel: str,
+        coa_data: list[dict[str, Any]],
+        staff_estimates: dict[str, str],
+        sja_review: str
+    ) -> tuple[str, str]:
+        """
+        Commander's Cell synthesizes all inputs into:
+        - COA comparison
+        - 2nd/3rd order effects
+        - Recommended COA
+        - Commander's Intent
+        """
+        self._log("STEP 5: SYNTHESIS FOR COMMANDER")
+
+        # Format all inputs
+        estimates_text = "\n\n".join([
+            f"### {role.upper()}:\n{estimate}"
+            for role, estimate in staff_estimates.items()
+        ])
+
+        synthesis_prompt = f"""As the COMMANDER'S CELL / SYNTHESIS AGENT, integrate all staff inputs
+and produce the commander's decision products.
+
+=== SCENARIO ===
+{scenario}
+================
+
+=== J2 INTELLIGENCE SUMMARY ===
+{j2_intel}
+===============================
+
+=== COA CONCEPTS (J5) ===
+{coa_data[0]['concepts']}
+=========================
+
+=== COA DETAILS (J3) ===
+{coa_data[0]['details']}
+========================
+
+=== FUNCTIONAL STAFF ESTIMATES ===
+{estimates_text}
+==================================
+
+=== SJA LEGAL/ETHICS REVIEW ===
+{sja_review}
+===============================
+
+Produce the following synthesis products:
+
+1. COA COMPARISON MATRIX
+   Create a comparison of all COAs across these criteria:
+   - Effectiveness (likelihood of mission success)
+   - Risk to Force (casualty/loss potential)
+   - Risk to Mission (probability of failure)
+   - Logistics Feasibility
+   - Communications Resilience
+   - Legal/Ethical Compliance
+   - Timeline to Achieve Objectives
+   Rate each as: HIGH / MEDIUM / LOW or provide brief assessment
+
+2. SECOND AND THIRD ORDER EFFECTS
+   For each COA, identify:
+   - 2nd Order Effects: Direct consequences of our actions
+   - 3rd Order Effects: Consequences of the consequences
+   Include both intended and unintended effects
+
+3. RECOMMENDED COA
+   - State your recommended COA (primary)
+   - State your backup COA (if primary becomes infeasible)
+   - Provide clear rationale for your recommendation
+
+4. COMMANDER'S INTENT
+   Draft the Commander's Intent with:
+   - PURPOSE: Why we are conducting this operation (the "why")
+   - METHOD: Broad approach to accomplish the mission (the "how" at high level)
+   - END STATE: Conditions that define success (what "right" looks like)
+
+Be decisive. Synthesize the staff work into clear, actionable guidance."""
+
+        self._step_log("COMMANDER", "Synthesizing staff inputs and formulating decision...")
+        self.synthesis = self.staff[StaffRole.COMMANDER].invoke(synthesis_prompt)
+
+        if self.config.verbose:
+            print(f"\n--- COMMANDER'S SYNTHESIS ---")
+            print(self.synthesis[:1000] + "..." if len(self.synthesis) > 1000 else self.synthesis)
+
+        # Extract Commander's Intent (will be part of synthesis but we store separately)
+        self.commanders_intent = self.synthesis
+
+        return self.synthesis, self.commanders_intent
+
+    # =========================================================================
+    # STEP 6: GENERATE FINAL OUTPUT
+    # =========================================================================
+
+    def generate_final_output(
+        self,
+        scenario: str,
+        j2_intel: str,
+        coa_data: list[dict[str, Any]],
+        staff_estimates: dict[str, str],
+        sja_review: str,
+        synthesis: str
+    ) -> str:
+        """
+        Generate the final structured planning output.
+        """
+        self._log("GENERATING FINAL PLANNING PRODUCT")
+
+        # Format staff estimates
+        estimates_formatted = "\n\n".join([
+            f"**{role.upper()}:**\n{estimate}"
+            for role, estimate in staff_estimates.items()
+        ])
+
+        output = f"""
+################################################################################
+#                                                                              #
+#                           PROJECT WARGATE                                    #
+#                 JOINT STAFF PLANNING PRODUCT                                 #
+#                                                                              #
+################################################################################
+
+================================================================================
+                        STRATEGIC PROBLEM STATEMENT
+================================================================================
+
+{scenario}
+
+================================================================================
+                             KEY ASSUMPTIONS
+================================================================================
+
+The following assumptions underpin this planning effort:
+
+1. Intelligence assessments of enemy capabilities and intentions are accurate
+2. Allied/coalition forces will participate as planned
+3. Host nation support will be available as coordinated
+4. Lines of communication will remain open (or can be reopened)
+5. Political/strategic objectives remain constant throughout execution
+6. Rules of engagement will be adequate for mission requirements
+7. Weather and environmental conditions will permit operations as planned
+
+(Note: Assumption failure triggers branch plan development)
+
+================================================================================
+                        J2 INTELLIGENCE SUMMARY
+================================================================================
+
+{j2_intel}
+
+================================================================================
+                          COMMANDER'S INTENT
+================================================================================
+
+{synthesis}
+
+================================================================================
+                     COURSES OF ACTION DEVELOPED
+================================================================================
+
+--- COA CONCEPTS (J5 OPERATIONAL APPROACHES) ---
+
+{coa_data[0]['concepts']}
+
+--- COA DETAILS (J3 EXECUTION FRAMEWORK) ---
+
+{coa_data[0]['details']}
+
+================================================================================
+                       STAFF ESTIMATES BY COA
+================================================================================
+
+{estimates_formatted}
+
+================================================================================
+                       COA COMPARISON MATRIX
+================================================================================
+
+(Extracted from Commander's Synthesis above - see COA COMPARISON MATRIX section)
+
+================================================================================
+                        RECOMMENDED COA
+================================================================================
+
+(See Commander's Synthesis above - RECOMMENDED COA section)
+
+================================================================================
+                     MAJOR RISKS & MITIGATIONS
+================================================================================
+
+RISKS IDENTIFIED BY STAFF:
+
+1. INTELLIGENCE RISK: Enemy may act differently than assessed ECOAs
+   - Mitigation: Continuous collection, rapid re-assessment triggers
+
+2. LOGISTICS RISK: Sustainment may not keep pace with operational tempo
+   - Mitigation: Pre-positioned stocks, multiple MSRs, host nation support
+
+3. C2 RISK: Communications may be degraded by enemy action
+   - Mitigation: PACE planning, degraded ops procedures, mission command
+
+4. FORCE PROTECTION RISK: High-value assets vulnerable to enemy fires
+   - Mitigation: Dispersion, hardening, AMD coverage, OPSEC
+
+5. POLITICAL RISK: Escalation or loss of coalition/domestic support
+   - Mitigation: Strategic communications, proportional response, clear objectives
+
+(Additional risks identified in staff estimates above)
+
+================================================================================
+                   LEGAL / ETHICAL CONSIDERATIONS
+================================================================================
+
+{sja_review}
+
+================================================================================
+                              END OF PRODUCT
+================================================================================
+
+Classification: UNCLASSIFIED // FOR EXERCISE PURPOSES ONLY
+
+Prepared by: PROJECT WARGATE Joint Staff Planning System
+"""
+
+        return output
+
+    # =========================================================================
+    # MAIN ORCHESTRATION METHOD
+    # =========================================================================
+
+    def run(self, scenario: str) -> str:
+        """
+        Execute the complete joint staff planning process.
+
+        Args:
+            scenario: The operational scenario description
+
+        Returns:
+            The final unified planning product as a structured string
+        """
+        self.initialize()
+        self.scenario = scenario
+
+        self._log("PROJECT WARGATE - JOINT STAFF PLANNING INITIATED")
+
+        if self.config.verbose:
+            print(f"\n=== SCENARIO ===")
+            print(scenario)
+            print(f"================")
+
+        # Step 1: J2 Intelligence Estimate
+        j2_intel = self.step_j2_intelligence_estimate(scenario)
+
+        # Step 2: J5 + J3 COA Development
+        coa_data = self.step_coa_development(scenario, j2_intel)
+
+        # Step 3: Functional Staff Reviews
+        staff_estimates = self.step_functional_staff_reviews(
+            scenario, j2_intel, coa_data
+        )
+
+        # Step 4: SJA Legal/Ethics Review
+        sja_review = self.step_sja_review(
+            scenario, j2_intel, coa_data, staff_estimates
+        )
+
+        # Step 5: Commander Synthesis
+        synthesis, commanders_intent = self.step_commander_synthesis(
+            scenario, j2_intel, coa_data, staff_estimates, sja_review
+        )
+
+        # Step 6: Generate Final Output
+        final_output = self.generate_final_output(
+            scenario, j2_intel, coa_data, staff_estimates, sja_review, synthesis
+        )
+
+        self._log("PLANNING COMPLETE")
+
+        return final_output
+
+
+# =============================================================================
+# PRIMARY ENTRY POINT: run_joint_staff_planning
+# =============================================================================
+
+def run_joint_staff_planning(
+    scenario_text: str,
+    model_name: str = "gpt-4.1",
+    temperature: float = 0.7,
+    verbose: bool = True,
+    api_key: str | None = None,
+) -> str:
+    """
+    Main entry point for joint staff planning.
+
+    Executes the following planning flow:
+    1. J2 Intelligence Estimate
+    2. J5 + J3 COA Development
+    3. Functional Staff Reviews (per COA)
+    4. SJA Legal/Ethics Review
+    5. Commander Synthesis
+    6. Final Structured Output
+
+    Args:
+        scenario_text: The operational scenario to plan for
+        model_name: OpenAI model name (default: "gpt-4.1")
+        temperature: LLM temperature (default: 0.7)
+        verbose: Enable verbose output (default: True)
+        api_key: OpenAI API key (optional, uses env var if not provided)
+
+    Returns:
+        A structured planning product string containing:
+        - Strategic Problem Statement
+        - Key Assumptions
+        - J2 Intelligence Summary
+        - Commander's Intent
+        - COAs with concepts, advantages, limitations, effects
+        - COA Comparison
+        - Recommended COA with rationale
+        - Major Risks & Mitigations
+        - Legal/Ethical Considerations
+
+    Example:
+        >>> scenario = '''
+        ... A near-peer adversary has massed forces along the border of a NATO ally.
+        ... Intelligence indicates an imminent invasion within 72 hours.
+        ... '''
+        >>> result = run_joint_staff_planning(scenario)
+        >>> print(result)
+    """
+    config = WARGATEConfig(
+        model_name=model_name,
+        temperature=temperature,
+        verbose=verbose,
+        api_key=api_key,
+    )
+
+    controller = JointStaffPlanningController(config)
+    return controller.run(scenario_text)
+
+
+# =============================================================================
+# LEGACY ORCHESTRATOR (Preserved for backward compatibility)
 # =============================================================================
 
 class WARGATEOrchestrator:
@@ -1373,6 +2189,7 @@ Example usage:
   python wargate.py --scenario "A near-peer adversary has massed forces..."
   python wargate.py --scenario-file scenario.txt --model gpt-4.1
   python wargate.py --scenario "..." --temperature 0.5 --quiet
+  python wargate.py --legacy  # Use legacy orchestrator instead of new controller
         """
     )
 
@@ -1414,6 +2231,12 @@ Example usage:
         help="Output file path (optional, prints to stdout if not specified)"
     )
 
+    parser.add_argument(
+        "--legacy",
+        action="store_true",
+        help="Use legacy WARGATEOrchestrator instead of new JointStaffPlanningController"
+    )
+
     args = parser.parse_args()
 
     # Get scenario
@@ -1450,13 +2273,23 @@ Time available for planning: 48 hours
 """
         print("No scenario provided. Using default demonstration scenario.\n")
 
-    # Run planning
-    result = run_wargate_planning(
-        scenario=scenario,
-        model_name=args.model,
-        temperature=args.temperature,
-        verbose=not args.quiet,
-    )
+    # Run planning with appropriate controller
+    if args.legacy:
+        # Use legacy orchestrator
+        result = run_wargate_planning(
+            scenario=scenario,
+            model_name=args.model,
+            temperature=args.temperature,
+            verbose=not args.quiet,
+        )
+    else:
+        # Use new JointStaffPlanningController (default)
+        result = run_joint_staff_planning(
+            scenario_text=scenario,
+            model_name=args.model,
+            temperature=args.temperature,
+            verbose=not args.quiet,
+        )
 
     # Output results
     if args.output:

@@ -1,7 +1,8 @@
 """
 Example usage of the WARGATE Multi-Agent Joint Staff Planning System.
 
-This script demonstrates how to use WARGATE for various planning scenarios.
+This script demonstrates how to use WARGATE for various planning scenarios
+using the new JointStaffPlanningController orchestration flow.
 """
 
 import os
@@ -11,17 +12,35 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from wargate import (
+    # Primary entry point (new controller)
+    run_joint_staff_planning,
+    JointStaffPlanningController,
+    # Legacy entry point
     run_wargate_planning,
-    WARGATEConfig,
     WARGATEOrchestrator,
+    # Configuration and agents
+    WARGATEConfig,
     StaffRole,
     create_staff_agent,
 )
 
 
-def example_basic_usage():
-    """Basic usage example with default settings."""
+# =============================================================================
+# EXAMPLE 1: Basic Usage with New Controller
+# =============================================================================
 
+def example_basic_usage():
+    """
+    Basic usage example using the new JointStaffPlanningController.
+
+    This follows the planning flow:
+    1. J2 Intelligence Estimate
+    2. J5 + J3 COA Development
+    3. Functional Staff Reviews
+    4. SJA Legal/Ethics Review
+    5. Commander Synthesis
+    6. Final Structured Output
+    """
     scenario = """
     SITUATION: Hostile forces have seized a critical port city in a partner nation.
     The local government has requested assistance to restore sovereignty.
@@ -38,9 +57,11 @@ def example_basic_usage():
     CONSTRAINTS: Host nation approval required. Minimize infrastructure damage.
     """
 
-    print("Running WARGATE planning with basic settings...")
-    result = run_wargate_planning(
-        scenario=scenario,
+    print("Running WARGATE planning with new JointStaffPlanningController...")
+    print("=" * 80)
+
+    result = run_joint_staff_planning(
+        scenario_text=scenario,
         model_name="gpt-4.1",
         temperature=0.7,
         verbose=True,
@@ -54,9 +75,14 @@ def example_basic_usage():
     return result
 
 
-def example_custom_config():
-    """Example using custom configuration."""
+# =============================================================================
+# EXAMPLE 2: Using the Controller Directly
+# =============================================================================
 
+def example_controller_direct():
+    """
+    Example using JointStaffPlanningController directly for more control.
+    """
     config = WARGATEConfig(
         model_name="gpt-4.1",
         temperature=0.5,  # Lower temperature for more focused responses
@@ -65,7 +91,7 @@ def example_custom_config():
         api_key=os.getenv("OPENAI_API_KEY"),
     )
 
-    orchestrator = WARGATEOrchestrator(config)
+    controller = JointStaffPlanningController(config)
 
     scenario = """
     CYBER/HYBRID SCENARIO: A sophisticated state actor has launched a coordinated
@@ -85,9 +111,89 @@ def example_custom_config():
     Must maintain Alliance consensus.
     """
 
-    result = orchestrator.run(scenario)
+    result = controller.run(scenario)
     return result
 
+
+# =============================================================================
+# EXAMPLE 3: Step-by-Step Execution
+# =============================================================================
+
+def example_step_by_step():
+    """
+    Example showing how to run planning steps individually for fine control.
+    """
+    config = WARGATEConfig(
+        model_name="gpt-4.1",
+        temperature=0.7,
+        verbose=True,
+    )
+
+    controller = JointStaffPlanningController(config)
+    controller.initialize()
+
+    scenario = """
+    MARITIME SCENARIO: Adversary naval forces are threatening freedom of
+    navigation in international waters. Multiple merchant vessels have been
+    harassed. Allies request US-led coalition response.
+
+    ENEMY: Surface action group with destroyer, frigates, and support vessels.
+    Submarine threat assessed as moderate. Shore-based anti-ship missiles.
+
+    FRIENDLY: Carrier Strike Group, allied naval forces, regional air support.
+
+    MISSION: Restore freedom of navigation while deterring escalation.
+    """
+
+    print("=" * 80)
+    print("STEP-BY-STEP PLANNING EXECUTION")
+    print("=" * 80)
+
+    # Step 1: J2 Intelligence Estimate
+    print("\n>>> STEP 1: J2 INTELLIGENCE ESTIMATE")
+    j2_intel = controller.step_j2_intelligence_estimate(scenario)
+    print(f"\nIntel Summary Length: {len(j2_intel)} characters")
+
+    # Step 2: J5 + J3 COA Development
+    print("\n>>> STEP 2: J5 + J3 COA DEVELOPMENT")
+    coa_data = controller.step_coa_development(scenario, j2_intel)
+    print(f"\nCOAs Developed: {len(coa_data)}")
+
+    # Step 3: Functional Staff Reviews
+    print("\n>>> STEP 3: FUNCTIONAL STAFF REVIEWS")
+    staff_estimates = controller.step_functional_staff_reviews(
+        scenario, j2_intel, coa_data
+    )
+    print(f"\nStaff Sections Reviewed: {len(staff_estimates)}")
+    for role in staff_estimates.keys():
+        print(f"  - {role}")
+
+    # Step 4: SJA Review
+    print("\n>>> STEP 4: SJA LEGAL/ETHICS REVIEW")
+    sja_review = controller.step_sja_review(
+        scenario, j2_intel, coa_data, staff_estimates
+    )
+    print(f"\nSJA Review Length: {len(sja_review)} characters")
+
+    # Step 5: Commander Synthesis
+    print("\n>>> STEP 5: COMMANDER SYNTHESIS")
+    synthesis, intent = controller.step_commander_synthesis(
+        scenario, j2_intel, coa_data, staff_estimates, sja_review
+    )
+    print(f"\nSynthesis Length: {len(synthesis)} characters")
+
+    # Step 6: Final Output
+    print("\n>>> STEP 6: GENERATING FINAL OUTPUT")
+    final_output = controller.generate_final_output(
+        scenario, j2_intel, coa_data, staff_estimates, sja_review, synthesis
+    )
+
+    return final_output
+
+
+# =============================================================================
+# EXAMPLE 4: Query Single Agent
+# =============================================================================
 
 def example_single_agent_query():
     """Example of querying a single staff agent directly."""
@@ -127,6 +233,10 @@ def example_single_agent_query():
     return response
 
 
+# =============================================================================
+# EXAMPLE 5: Compare Multiple Scenarios
+# =============================================================================
+
 def example_multi_scenario_comparison():
     """Example comparing planning outputs for different scenarios."""
 
@@ -161,8 +271,8 @@ def example_multi_scenario_comparison():
         print(f"{'='*80}")
 
         # Use lower verbosity for comparison run
-        result = run_wargate_planning(
-            scenario=scenario_text,
+        result = run_joint_staff_planning(
+            scenario_text=scenario_text,
             model_name="gpt-4.1",
             temperature=0.7,
             verbose=False,  # Quiet mode for bulk processing
@@ -174,55 +284,34 @@ def example_multi_scenario_comparison():
     return results
 
 
-def example_phased_planning():
-    """Example showing how to run planning phases individually."""
+# =============================================================================
+# EXAMPLE 6: Legacy Orchestrator
+# =============================================================================
 
-    config = WARGATEConfig(
+def example_legacy_orchestrator():
+    """Example using the legacy WARGATEOrchestrator for comparison."""
+
+    scenario = """
+    SITUATION: Border tensions escalating with neighboring state.
+    Enemy massing forces, conducting aggressive patrols.
+    Mission: Deter aggression, prepare defensive options.
+    """
+
+    print("Running with LEGACY WARGATEOrchestrator...")
+
+    result = run_wargate_planning(
+        scenario=scenario,
         model_name="gpt-4.1",
         temperature=0.7,
         verbose=True,
     )
 
-    orchestrator = WARGATEOrchestrator(config)
-    orchestrator.initialize()
+    return result
 
-    scenario = """
-    MARITIME SCENARIO: Adversary naval forces are threatening freedom of
-    navigation in international waters. Multiple merchant vessels have been
-    harassed. Allies request US-led coalition response.
 
-    ENEMY: Surface action group with destroyer, frigates, and support vessels.
-    Submarine threat assessed as moderate. Shore-based anti-ship missiles.
-
-    FRIENDLY: Carrier Strike Group, allied naval forces, regional air support.
-
-    MISSION: Restore freedom of navigation while deterring escalation.
-    """
-
-    # Run individual phases and examine outputs
-    print("\n=== PHASE 1: MISSION ANALYSIS ===")
-    mission_analysis = orchestrator.phase_mission_analysis(scenario)
-    print("\nCommander's Guidance:")
-    print(mission_analysis["commander_guidance"])
-
-    print("\n=== PHASE 2: COA DEVELOPMENT ===")
-    coa_development = orchestrator.phase_coa_development(mission_analysis)
-    print("\nCOA Concepts:")
-    print(coa_development["coa_concepts"])
-
-    print("\n=== PHASE 3: COA ANALYSIS ===")
-    coa_analysis = orchestrator.phase_coa_analysis(coa_development)
-    print("\nRed Team Analysis:")
-    print(coa_analysis["red_team_analysis"])
-
-    # Continue with remaining phases...
-    coa_comparison = orchestrator.phase_coa_comparison(coa_analysis)
-    coa_selection = orchestrator.phase_coa_selection(coa_comparison)
-    plan_development = orchestrator.phase_plan_development(coa_selection)
-
-    final_output = orchestrator.generate_final_output()
-    return final_output
-
+# =============================================================================
+# MAIN
+# =============================================================================
 
 if __name__ == "__main__":
     import argparse
@@ -230,7 +319,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="WARGATE example usage")
     parser.add_argument(
         "--example",
-        choices=["basic", "custom", "single", "multi", "phased"],
+        choices=["basic", "controller", "stepbystep", "single", "multi", "legacy"],
         default="basic",
         help="Which example to run"
     )
@@ -239,15 +328,16 @@ if __name__ == "__main__":
 
     examples = {
         "basic": example_basic_usage,
-        "custom": example_custom_config,
+        "controller": example_controller_direct,
+        "stepbystep": example_step_by_step,
         "single": example_single_agent_query,
         "multi": example_multi_scenario_comparison,
-        "phased": example_phased_planning,
+        "legacy": example_legacy_orchestrator,
     }
 
-    # Run selected example
-    print(f"\nRunning example: {args.example}")
-    print("=" * 80)
+    print(f"\n{'#'*80}")
+    print(f"#  WARGATE EXAMPLE: {args.example.upper()}")
+    print(f"{'#'*80}")
 
     result = examples[args.example]()
 

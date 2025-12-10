@@ -11,7 +11,7 @@ WARGATE implements a complete joint staff planning cell with 15 specialized AI a
 ## Features
 
 - **15 Specialized Staff Agents**: Commander, J1-J8, Cyber/EW, Fires, Engineer, Protection, SJA, and PAO
-- **Doctrinal Planning Process**: Follows JP 5-0 joint planning phases
+- **Structured Planning Flow**: J2 Intel → J5/J3 COA Dev → Staff Reviews → SJA Review → Commander Synthesis
 - **Red Team Integration**: J2 Intelligence agent challenges assumptions and war-games enemy responses
 - **RAG-Ready Architecture**: Stub tools ready for doctrine, geopolitics, logistics, and cyber intel retrievers
 - **Configurable LLM Backend**: Use any OpenAI model with adjustable parameters
@@ -30,7 +30,7 @@ export OPENAI_API_KEY="your-api-key"
 ## Quick Start
 
 ```python
-from wargate import run_wargate_planning
+from wargate import run_joint_staff_planning
 
 scenario = """
 A near-peer adversary has massed forces along the border of a NATO ally.
@@ -38,8 +38,8 @@ Intelligence indicates an imminent invasion within 72 hours.
 Develop options for deterrence and defense.
 """
 
-result = run_wargate_planning(
-    scenario=scenario,
+result = run_joint_staff_planning(
+    scenario_text=scenario,
     model_name="gpt-4.1",
     temperature=0.7,
 )
@@ -50,7 +50,7 @@ print(result)
 ## CLI Usage
 
 ```bash
-# Run with inline scenario
+# Run with inline scenario (uses new JointStaffPlanningController)
 python wargate.py --scenario "Your scenario description here"
 
 # Run with scenario from file
@@ -64,7 +64,62 @@ python wargate.py -s "Scenario..." --output plan.txt
 
 # Run quietly (minimal console output)
 python wargate.py -s "Scenario..." --quiet
+
+# Use legacy orchestrator
+python wargate.py -s "Scenario..." --legacy
 ```
+
+## Planning Flow
+
+The `run_joint_staff_planning()` function executes the following orchestrated flow:
+
+### Step 1: J2 Intelligence Estimate
+- Enemy situation assessment
+- Likely enemy COAs (MLCOA/MDCOA)
+- Key intelligence gaps and PIRs
+- Indications & warnings
+
+### Step 2: J5 + J3 COA Development
+- **J5**: Proposes 3-4 high-level operational approaches
+- **J3**: Refines into executable COA descriptions with:
+  - Phasing (Shape → Deter → Seize Initiative → Dominate → Stabilize → Enable)
+  - Main effort and supporting efforts
+  - Decision points, branches, and sequels
+
+### Step 3: Functional Staff Reviews
+Each staff section provides estimates per COA:
+- **J1**: Personnel/manpower feasibility
+- **J4**: Logistics/sustainment constraints
+- **J6**: Communications/C4I resilience
+- **Cyber/EW**: Cyber and EW opportunities/risks
+- **Fires**: Targeting and fires integration
+- **Engineer**: Mobility/counter-mobility/survivability
+- **Protection**: Force protection and AMD
+- **PAO/IO**: Information environment implications
+
+### Step 4: SJA Legal/Ethics Review
+- LOAC/IHL compliance
+- ROE adequacy
+- AI/autonomous systems ethics
+- International law considerations
+
+### Step 5: Synthesis for Commander
+- COA comparison matrix
+- 2nd and 3rd order effects analysis
+- Recommended COA with rationale
+- Commander's Intent (Purpose, Method, End State)
+
+### Step 6: Final Output
+Structured planning product containing:
+- Strategic Problem Statement
+- Key Assumptions
+- J2 Intelligence Summary
+- Commander's Intent
+- COAs (concepts, advantages, limitations, effects)
+- COA Comparison
+- Recommended COA
+- Major Risks & Mitigations
+- Legal/Ethical Considerations
 
 ## Staff Roles
 
@@ -86,14 +141,29 @@ python wargate.py -s "Scenario..." --quiet
 | **SJA** | Legal advisor, LOAC, ethics |
 | **PAO/IO** | Strategic communications, information ops |
 
-## Planning Phases
+## Step-by-Step Execution
 
-1. **Mission Analysis**: Staff analyzes scenario, J2 provides threat assessment, Commander issues guidance
-2. **COA Development**: J5/J3 develop 3 distinct COAs with functional inputs
-3. **COA Analysis**: War-gaming, Red Team challenge, legal review
-4. **COA Comparison**: Staff evaluation against criteria
-5. **COA Selection**: Commander selects COA
-6. **Plan Development**: Detailed OPORD with annexes
+For fine-grained control, use the controller directly:
+
+```python
+from wargate import JointStaffPlanningController, WARGATEConfig
+
+config = WARGATEConfig(model_name="gpt-4.1", temperature=0.7)
+controller = JointStaffPlanningController(config)
+controller.initialize()
+
+# Execute steps individually
+j2_intel = controller.step_j2_intelligence_estimate(scenario)
+coa_data = controller.step_coa_development(scenario, j2_intel)
+staff_estimates = controller.step_functional_staff_reviews(scenario, j2_intel, coa_data)
+sja_review = controller.step_sja_review(scenario, j2_intel, coa_data, staff_estimates)
+synthesis, intent = controller.step_commander_synthesis(
+    scenario, j2_intel, coa_data, staff_estimates, sja_review
+)
+final_output = controller.generate_final_output(
+    scenario, j2_intel, coa_data, staff_estimates, sja_review, synthesis
+)
+```
 
 ## Extending with RAG
 
@@ -119,14 +189,60 @@ Available retriever stubs:
 ## Architecture
 
 ```
-WARGATEOrchestrator
-├── WARGATEConfig (model, temperature, etc.)
-├── StaffAgent[] (15 agents)
-│   ├── StaffRole (enum)
-│   ├── System Prompt (doctrinal role)
-│   ├── Tools (RAG retrievers)
-│   └── AgentExecutor (LangChain)
-└── Planning Phases (6 phases)
+run_joint_staff_planning()
+└── JointStaffPlanningController
+    ├── WARGATEConfig (model, temperature, etc.)
+    ├── StaffAgent[] (15 agents)
+    │   ├── StaffRole (enum)
+    │   ├── System Prompt (doctrinal role)
+    │   ├── Tools (RAG retrievers)
+    │   └── AgentExecutor (LangChain)
+    └── Planning Steps
+        ├── step_j2_intelligence_estimate()
+        ├── step_coa_development()
+        ├── step_functional_staff_reviews()
+        ├── step_sja_review()
+        ├── step_commander_synthesis()
+        └── generate_final_output()
+```
+
+## Example Output Structure
+
+```
+================================================================================
+                        STRATEGIC PROBLEM STATEMENT
+================================================================================
+[Scenario description]
+
+================================================================================
+                             KEY ASSUMPTIONS
+================================================================================
+1. Intelligence assessments accurate...
+
+================================================================================
+                        J2 INTELLIGENCE SUMMARY
+================================================================================
+[Enemy situation, ECOAs, vulnerabilities, intel gaps, I&W]
+
+================================================================================
+                          COMMANDER'S INTENT
+================================================================================
+[COA comparison, 2nd/3rd order effects, recommended COA, intent]
+
+================================================================================
+                     COURSES OF ACTION DEVELOPED
+================================================================================
+[J5 concepts + J3 execution details]
+
+================================================================================
+                       STAFF ESTIMATES BY COA
+================================================================================
+[J1, J4, J6, Cyber/EW, Fires, Engineer, Protection, PAO estimates]
+
+================================================================================
+                   LEGAL / ETHICAL CONSIDERATIONS
+================================================================================
+[SJA review: LOAC, ROE, AI ethics, international law]
 ```
 
 ## License
