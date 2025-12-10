@@ -54,13 +54,13 @@ WARGATE_LOGO = "WARGATE_logo.png"
 SIDEBAR_LOGO = "Joint_Chiefs_of_Staff_seal_(2).svg - Copy.png"
 
 LOGO_FILES = [
-    "Cyber National Mission Force.png",
-    "Seal_of_the_United_States_Cyber_Command.svg.png",
-    "Joint_Chiefs_of_Staff_seal_(2).svg - Copy.png",
-    "DoW.png",
-    "DoAF.png",
-    "DoN.avif",
-    "Emblem_of_the_U.S._Department_of_the_Army.svg.png",
+    "CNMF Seal.png",
+    "USCC Seal.png",
+    "JCOS Seal.png",
+    "DoW Seal.png",
+    "DoAF Seal.png",
+    "DoN Seal.png",
+    "DoA Seal.png",
 ]
 
 # Military branch colors for dialogue bubbles
