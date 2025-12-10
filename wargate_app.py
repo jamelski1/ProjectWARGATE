@@ -2031,6 +2031,12 @@ def init_session_state():
         if key not in st.session_state:
             st.session_state[key] = default
 
+    # Safety reset: If is_running is True but we're starting fresh,
+    # reset it to prevent the RUN button from being stuck disabled
+    # (This can happen if a previous run crashed/was interrupted)
+    if st.session_state.is_running and not st.session_state.phase_outputs:
+        st.session_state.is_running = False
+
 
 def get_or_create_orchestrator() -> MeetingOrchestrator:
     """Get the cached orchestrator or create a new one."""
@@ -2192,12 +2198,28 @@ def render_sidebar():
                     st.session_state[key] = default_value
                 st.rerun()
 
-        # API status
+        # Status indicators
         st.markdown("---")
-        if os.environ.get("OPENAI_API_KEY"):
-            st.success("API Key: Configured")
+        st.subheader("Status")
+
+        # API Key status
+        api_key_set = bool(os.environ.get("OPENAI_API_KEY"))
+        if api_key_set:
+            st.success("✅ API Key: Configured")
         else:
-            st.error("API Key: Not Set")
+            st.error("❌ API Key: Not Set")
+
+        # Scenario status
+        if scenario and scenario.strip():
+            st.success(f"✅ Scenario: {len(scenario)} chars")
+        else:
+            st.warning("⚠️ Scenario: Not entered")
+
+        # Ready status
+        if api_key_set and scenario and scenario.strip():
+            st.info("🚀 Ready to run!")
+        elif st.session_state.is_running:
+            st.info("🔄 Planning in progress...")
 
         return {
             "model_name": model_name,
@@ -3010,22 +3032,31 @@ def main():
     # Handle run button
     if inputs["run_clicked"]:
         if not inputs["scenario"]:
-            st.warning("Please enter a scenario before running the planning process.")
+            st.warning("⚠️ Please enter a scenario before running the planning process.")
         elif not os.environ.get("OPENAI_API_KEY"):
-            st.error("OPENAI_API_KEY environment variable is not set.")
+            st.error("🔑 OPENAI_API_KEY environment variable is not set. Please set it and restart.")
         else:
+            # Immediate visual feedback
+            st.info("🚀 **Starting Joint Planning Process...** This may take several minutes.")
+
             st.session_state.scenario_text = inputs["scenario"]
             st.session_state.is_running = True
             st.session_state.current_phase = JPPPhase.PLANNING_INITIATION
 
-            success = run_full_planning(
-                scenario=inputs["scenario"],
-                model_name=inputs["model_name"],
-                temperature=inputs["temperature"],
-                persona_seed=inputs["persona_seed"]
-            )
-
-            st.session_state.is_running = False
+            try:
+                success = run_full_planning(
+                    scenario=inputs["scenario"],
+                    model_name=inputs["model_name"],
+                    temperature=inputs["temperature"],
+                    persona_seed=inputs["persona_seed"]
+                )
+            except Exception as e:
+                st.error(f"❌ Planning failed with error: {str(e)}")
+                st.exception(e)
+                success = False
+            finally:
+                # Always reset is_running to prevent stuck button
+                st.session_state.is_running = False
 
             if success:
                 st.rerun()
