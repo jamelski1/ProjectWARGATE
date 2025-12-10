@@ -2172,7 +2172,7 @@ class WARGATEReportPDF(FPDF):
                 # Bullet point
                 self.set_x(15)
                 bullet_text = line.lstrip('-*• ').strip()
-                self.multi_cell(180, 5, f"• {bullet_text}")
+                self.multi_cell(180, 5, f"- {bullet_text}")
             elif len(line) > 2 and line[0].isdigit() and line[1] in '.):':
                 # Numbered item
                 self.set_x(15)
@@ -2404,7 +2404,7 @@ def extract_sections_from_phase_result(phase_result: PhaseResult) -> list[SlideS
         # Convert bullets to body text
         body_lines = []
         for bullet in bullets:
-            body_lines.append(f"• {bullet}")
+            body_lines.append(f"- {bullet}")
         if notes:
             body_lines.append("")
             body_lines.append(f"Notes: {notes}")
@@ -2427,7 +2427,7 @@ def extract_sections_from_phase_result(phase_result: PhaseResult) -> list[SlideS
         if priority_tasks:
             body_parts.append("\nPriority Tasks:")
             for task in priority_tasks:
-                body_parts.append(f"• {task}")
+                body_parts.append(f"- {task}")
 
         if body_parts:
             sections.append({
