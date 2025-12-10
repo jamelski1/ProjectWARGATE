@@ -2711,8 +2711,14 @@ def run_phase_with_live_dialogue(
         live_turns.append(turn)
         st.session_state.live_turns = live_turns
 
-        # Re-render all turns in the scrollable dialogue container
-        render_turns_incrementally(live_turns, dialogue_container, delay=0, scrollable=True)
+        # Debug: Show turn info
+        speaker = turn.get('speaker', 'Unknown')
+        text_preview = turn.get('text', '')[:100]
+        st.write(f"💬 **{speaker}**: {text_preview}...")
+
+        # Render just this new turn to the container (appends, doesn't replace)
+        with dialogue_container:
+            render_dialogue_bubble_from_turn(turn)
 
     def on_substep_callback(substep: str, description: str):
         """Called when starting a new substep."""
@@ -2906,11 +2912,16 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
     """
     st.session_state.is_running = True
 
+    # Show immediate feedback that we're starting
+    st.markdown("## 🚀 Joint Planning Process Running")
+    st.markdown(f"**Scenario:** {scenario[:200]}..." if len(scenario) > 200 else f"**Scenario:** {scenario}")
+    st.markdown("---")
+
     # Create containers for live updates
     progress_bar = st.progress(0, text="Initializing multi-agent planning process...")
     banner_container = st.empty()  # Current phase banner
     status_container = st.empty()
-    dialogue_container = st.empty()
+    dialogue_container = st.container()  # Use container instead of empty for persistence
 
     phases = list(JPPPhase)
     total_phases = len(phases)
@@ -2922,6 +2933,9 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
             # Update progress
             progress = idx / total_phases
             progress_bar.progress(progress, text=f"Phase {idx + 1}/{total_phases}: {phase_info['name']}")
+
+            # Debug: Show which phase we're starting
+            st.write(f"🔄 **Starting Phase {idx + 1}:** {phase_info['name']}")
 
             with status_container:
                 st.info(f"Starting Phase {idx + 1}: {phase_info['name']}")
