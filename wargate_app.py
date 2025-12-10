@@ -233,32 +233,158 @@ h3 {
 }
 
 /* =================================================================
-   SIDEBAR STYLING
+   SIDEBAR STYLING - High Contrast Accessible Theme
    ================================================================= */
 
-[data-testid="stSidebar"] {
-    background-color: var(--sidebar-bg) !important;
+/* Base sidebar container */
+section[data-testid="stSidebar"] {
+    background-color: #050509 !important;
     border-right: 2px solid var(--primary-purple);
 }
 
-[data-testid="stSidebar"] * {
-    color: var(--sidebar-text) !important;
+/* Force ALL sidebar text to be light/readable */
+section[data-testid="stSidebar"],
+section[data-testid="stSidebar"] * {
+    color: #F5F5F5 !important;
 }
 
-[data-testid="stSidebar"] .stSelectbox label,
-[data-testid="stSidebar"] .stTextInput label,
-[data-testid="stSidebar"] .stTextArea label,
-[data-testid="stSidebar"] .stSlider label,
-[data-testid="stSidebar"] .stNumberInput label {
-    color: var(--sidebar-text) !important;
+/* Sidebar headings - pure white, bold */
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3,
+section[data-testid="stSidebar"] .stMarkdown h1,
+section[data-testid="stSidebar"] .stMarkdown h2,
+section[data-testid="stSidebar"] .stMarkdown h3 {
+    color: #FFFFFF !important;
+    font-weight: 700;
+    border-bottom: 2px solid var(--primary-purple);
+    padding-bottom: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* All input labels - light gray for readability */
+section[data-testid="stSidebar"] label,
+section[data-testid="stSidebar"] .stRadio label,
+section[data-testid="stSidebar"] .stSelectbox label,
+section[data-testid="stSidebar"] .stTextInput label,
+section[data-testid="stSidebar"] .stTextArea label,
+section[data-testid="stSidebar"] .stSlider label,
+section[data-testid="stSidebar"] .stNumberInput label,
+section[data-testid="stSidebar"] .stFileUploader label,
+section[data-testid="stSidebar"] [data-testid="stWidgetLabel"] {
+    color: #F5F5F5 !important;
     font-weight: 500;
 }
 
-[data-testid="stSidebar"] h1,
-[data-testid="stSidebar"] h2,
-[data-testid="stSidebar"] h3 {
-    color: var(--sidebar-text) !important;
-    border-bottom-color: var(--primary-purple);
+/* Radio button options and checkbox text */
+section[data-testid="stSidebar"] .stRadio > div,
+section[data-testid="stSidebar"] .stRadio label span,
+section[data-testid="stSidebar"] .stCheckbox label span,
+section[data-testid="stSidebar"] [data-baseweb="radio"] label {
+    color: #F5F5F5 !important;
+}
+
+/* Help text / small description text */
+section[data-testid="stSidebar"] .stTooltipIcon,
+section[data-testid="stSidebar"] small,
+section[data-testid="stSidebar"] .caption,
+section[data-testid="stSidebar"] [data-testid="stCaptionContainer"],
+section[data-testid="stSidebar"] .stMarkdown p {
+    color: #CCCCCC !important;
+}
+
+/* Input fields - dark background with light text */
+section[data-testid="stSidebar"] input,
+section[data-testid="stSidebar"] textarea,
+section[data-testid="stSidebar"] .stTextInput input,
+section[data-testid="stSidebar"] .stTextArea textarea,
+section[data-testid="stSidebar"] .stNumberInput input {
+    background-color: #1a1a2e !important;
+    color: #F5F5F5 !important;
+    border: 1px solid #3a3a5a !important;
+}
+
+/* Placeholder text - visible but subtle */
+section[data-testid="stSidebar"] input::placeholder,
+section[data-testid="stSidebar"] textarea::placeholder {
+    color: #AAAAAA !important;
+    opacity: 1 !important;
+}
+
+/* Selectbox dropdown */
+section[data-testid="stSidebar"] .stSelectbox > div > div {
+    background-color: #1a1a2e !important;
+    color: #F5F5F5 !important;
+    border: 1px solid #3a3a5a !important;
+}
+
+/* Slider styling */
+section[data-testid="stSidebar"] .stSlider > div > div > div {
+    background-color: var(--primary-purple) !important;
+}
+
+section[data-testid="stSidebar"] .stSlider [data-testid="stTickBarMin"],
+section[data-testid="stSidebar"] .stSlider [data-testid="stTickBarMax"] {
+    color: #CCCCCC !important;
+}
+
+/* Buttons in sidebar - high contrast */
+section[data-testid="stSidebar"] .stButton > button {
+    background-color: var(--primary-purple) !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    font-weight: 600;
+}
+
+section[data-testid="stSidebar"] .stButton > button:hover {
+    background-color: #8B5CF6 !important;
+    color: #FFFFFF !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button:disabled {
+    background-color: #333333 !important;
+    color: #AAAAAA !important;
+    cursor: not-allowed;
+}
+
+/* Secondary/outline buttons */
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+    background-color: #1a1a2e !important;
+    color: #F5F5F5 !important;
+    border: 2px solid var(--primary-purple) !important;
+}
+
+section[data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+    background-color: var(--primary-purple) !important;
+    color: #FFFFFF !important;
+}
+
+/* Success/error messages in sidebar */
+section[data-testid="stSidebar"] .stSuccess,
+section[data-testid="stSidebar"] [data-testid="stNotification"] {
+    background-color: #1a3a1a !important;
+    color: #90EE90 !important;
+}
+
+section[data-testid="stSidebar"] .stError {
+    background-color: #3a1a1a !important;
+    color: #FF6B6B !important;
+}
+
+/* File uploader in sidebar */
+section[data-testid="stSidebar"] .stFileUploader > div {
+    background-color: #1a1a2e !important;
+    border: 1px dashed #3a3a5a !important;
+}
+
+section[data-testid="stSidebar"] .stFileUploader > div:hover {
+    border-color: var(--primary-purple) !important;
+}
+
+/* Horizontal rules in sidebar - purple accent */
+section[data-testid="stSidebar"] hr {
+    border-color: var(--primary-purple) !important;
+    opacity: 0.5;
 }
 
 /* =================================================================
@@ -1252,6 +1378,126 @@ def render_welcome():
     """)
 
 
+def render_pipeline_instructions():
+    """Render the pipeline instructions and control flow diagram."""
+    st.markdown("## Pipeline Instructions")
+    st.markdown("""
+    This tab provides an overview of the WARGATE agent pipeline control flow
+    and explains how the 7-step Joint Planning Process is executed.
+    """)
+
+    st.markdown("### Control Flow Diagram")
+
+    # Render the ASCII diagram in a code block for proper formatting
+    st.code("""
+WARGATE AGENT PIPELINE CONTROL FLOW
+====================================
+
+                    ┌─────────────────────┐
+                    │   SCENARIO INPUT    │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │  PLANNING INITIATION │ ◄── Step 1
+                    │  (1a) Staff Meeting  │
+                    │  (1b) Slides PDF     │
+                    │  (1c) Brief CMDR     │
+                    │  (1d) CMDR Guidance  │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │  MISSION ANALYSIS    │ ◄── Step 2
+                    │  (2a) Staff Meeting  │
+                    │  (2b) Slides PDF     │
+                    │  (2c) Brief CMDR     │
+                    │  (2d) CMDR Guidance  │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │  COA DEVELOPMENT     │ ◄── Step 3
+                    │  (3a) Brainstorming  │
+                    │  (3b) COA Slides PDF │
+                    │  (3c) Brief CMDR     │
+                    │  (3d) CMDR Guidance  │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │  COA ANALYSIS        │ ◄── Step 4
+                    │  (4a) Wargame Mtg    │
+                    │  (4b) Wargame PDF    │
+                    │  (4c) Brief CMDR     │
+                    │  (4d) CMDR Guidance  │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │  COA COMPARISON      │ ◄── Step 5
+                    │  (5a) Compare Mtg    │
+                    │  (5b) Compare PDF    │
+                    │  (5c) Brief CMDR     │
+                    │  (5d) CMDR Selection │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │  COA APPROVAL        │ ◄── Step 6
+                    │  (6a) Final Coord    │
+                    │  (6b) Approval PDF   │
+                    │  (6c) Decision Brief │
+                    │  (6d) CMDR Approval  │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │  PLAN DEVELOPMENT    │ ◄── Step 7
+                    │  (7a) PLANDEV Work   │
+                    │  (7b) OPORD PDF      │
+                    │  (7c) Brief CMDR     │
+                    │  (7d) CMDR Approval  │
+                    └──────────┬──────────┘
+                               │
+                    ┌──────────▼──────────┐
+                    │   FINAL OUTPUT       │
+                    │  Complete Planning   │
+                    │  Product (PDF)       │
+                    └─────────────────────┘
+    """, language=None)
+
+    st.markdown("### Dialogue Bubble Flow (Per Phase)")
+
+    st.code("""
+DIALOGUE BUBBLE FLOW (per phase):
+─────────────────────────────────
+  Staff Agent 1 ──► speaks
+  Staff Agent 2 ──► responds
+  Staff Agent N ──► contributes
+       │
+       ▼
+  [PDF Slides Generated]
+       │
+       ▼
+  Staff ──► Brief Commander
+       │
+       ▼
+  Commander ──► Issues Guidance
+       │
+       ▼
+  [NEXT STEP Button]
+    """, language=None)
+
+    st.markdown("### Phase Sub-Steps Explained")
+
+    st.markdown("""
+    Each of the 7 JPP phases follows the same sub-step structure:
+
+    | Sub-Step | Description |
+    |----------|-------------|
+    | **(a) Staff Meeting** | Staff agents discuss and collaborate in dialogue bubbles |
+    | **(b) Slides PDF** | System generates exportable slide deck for the phase |
+    | **(c) Brief Commander** | Staff presents findings to the commander |
+    | **(d) Commander Guidance** | Commander issues direction for the next phase |
+
+    After completing all sub-steps, click **"PROCEED TO NEXT STEP"** to advance.
+    """)
+
+
 def render_planning_dashboard():
     """Render the main planning dashboard with all phases."""
     st.markdown("## Joint Planning Process Dashboard")
@@ -1494,11 +1740,26 @@ def main():
             if success:
                 st.rerun()
 
-    # Main content
+    # Main content with tabs
+    # Note: "Planning Outputs" tab comes first so it's the default active tab
     if st.session_state.phase_outputs:
-        render_planning_dashboard()
+        # After a run, show planning outputs as default with instructions in second tab
+        planning_tab, instructions_tab = st.tabs(["Planning Outputs", "Pipeline Instructions"])
+
+        with planning_tab:
+            render_planning_dashboard()
+
+        with instructions_tab:
+            render_pipeline_instructions()
     else:
-        render_welcome()
+        # Before a run, show welcome page with instructions in second tab
+        welcome_tab, instructions_tab = st.tabs(["Getting Started", "Pipeline Instructions"])
+
+        with welcome_tab:
+            render_welcome()
+
+        with instructions_tab:
+            render_pipeline_instructions()
 
 
 # =============================================================================
