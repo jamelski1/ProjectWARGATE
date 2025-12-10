@@ -1224,10 +1224,15 @@ def init_session_state():
 def get_or_create_orchestrator() -> MeetingOrchestrator:
     """Get the cached orchestrator or create a new one."""
     if st.session_state.orchestrator is None:
+        # Handle persona_seed being None or 0
+        persona_seed = st.session_state.persona_seed
+        if persona_seed is None or persona_seed == 0:
+            persona_seed = None
+
         st.session_state.orchestrator = create_orchestrator(
             model_name=st.session_state.model_name,
             temperature=st.session_state.temperature,
-            persona_seed=st.session_state.persona_seed if st.session_state.persona_seed > 0 else None,
+            persona_seed=persona_seed,
         )
     return st.session_state.orchestrator
 
@@ -1359,17 +1364,21 @@ def render_sidebar():
         with col2:
             if st.button("RESET", use_container_width=True):
                 # Reset all planning state
-                for key in ["planning_result", "scenario_text", "phase_outputs",
-                           "dialogue_history", "pdf_slides", "current_phase",
-                           "orchestrator", "live_turns", "phase_results", "prior_context"]:
-                    if key in ["phase_outputs", "pdf_slides", "phase_results"]:
-                        st.session_state[key] = {}
-                    elif key in ["dialogue_history", "live_turns"]:
-                        st.session_state[key] = []
-                    elif key == "prior_context":
-                        st.session_state[key] = ""
-                    else:
-                        st.session_state[key] = None
+                reset_keys = {
+                    "planning_result": None,
+                    "scenario_text": "",
+                    "phase_outputs": {},
+                    "dialogue_history": [],
+                    "pdf_slides": {},
+                    "current_phase": None,
+                    "orchestrator": None,
+                    "live_turns": [],
+                    "phase_results": {},
+                    "prior_context": "",
+                    "is_running": False,
+                }
+                for key, default_value in reset_keys.items():
+                    st.session_state[key] = default_value
                 st.rerun()
 
         # API status
