@@ -4036,7 +4036,15 @@ def convert_phase_result_to_legacy_format(phase_result: PhaseResult) -> dict:
         "Plan/Order Development": 7,
     }.get(phase_name, 1)
 
-    pdf_content = generate_phase_slides(phase_name, phase_num, slide_sections)
+    # Try to generate PDF, but gracefully handle Unicode encoding errors
+    # The standard Helvetica font doesn't support special characters like en-dash
+    pdf_content = None
+    try:
+        pdf_content = generate_phase_slides(phase_name, phase_num, slide_sections)
+    except Exception as e:
+        # Log the error but don't crash - PDF is optional
+        import logging
+        logging.warning(f"PDF generation skipped due to encoding error: {e}")
 
     return {
         "dialogues": dialogues,
