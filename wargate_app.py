@@ -67,7 +67,7 @@ from wargate import WARGATEConfig
 # =============================================================================
 
 # Logo filenames
-WARGATE_LOGO = "WARGATE_logo.png"
+WARGATE_LOGO = "WARGATE_Logo.png"
 SIDEBAR_LOGO = "Joint_Chiefs_of_Staff_seal_(2).svg - Copy.png"
 
 LOGO_FILES = [
