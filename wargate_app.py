@@ -3675,6 +3675,263 @@ DIALOGUE BUBBLE FLOW (per phase):
     """)
 
 
+# =============================================================================
+# SAVED FILES TAB - File Browser with View/Download/Delete
+# =============================================================================
+
+def get_saved_files_structure() -> dict:
+    """
+    Scan the wargate_logs directory and return a structured dict of all saved files.
+
+    Returns:
+        Dict structure: {operation_name: {phase_folder: [file_paths]}}
+    """
+    structure = {}
+
+    if not LOG_ROOT.exists():
+        return structure
+
+    # Iterate through operation folders
+    for op_folder in sorted(LOG_ROOT.iterdir()):
+        if op_folder.is_dir():
+            op_name = op_folder.name
+            structure[op_name] = {}
+
+            # Iterate through phase folders
+            for phase_folder in sorted(op_folder.iterdir()):
+                if phase_folder.is_dir():
+                    phase_name = phase_folder.name
+                    files = []
+
+                    # Get all text files in the phase folder
+                    for file_path in sorted(phase_folder.iterdir()):
+                        if file_path.is_file() and file_path.suffix == ".txt":
+                            files.append(file_path)
+
+                    if files:
+                        structure[op_name][phase_name] = files
+
+            # Remove empty operations
+            if not structure[op_name]:
+                del structure[op_name]
+
+    return structure
+
+
+def delete_file_safely(file_path: Path) -> bool:
+    """
+    Delete a file and clean up empty parent directories.
+
+    Args:
+        file_path: Path to the file to delete
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        if file_path.exists():
+            file_path.unlink()
+
+            # Clean up empty phase folder
+            phase_folder = file_path.parent
+            if phase_folder.exists() and not any(phase_folder.iterdir()):
+                phase_folder.rmdir()
+
+                # Clean up empty operation folder
+                op_folder = phase_folder.parent
+                if op_folder.exists() and not any(op_folder.iterdir()):
+                    op_folder.rmdir()
+
+            return True
+    except Exception as e:
+        st.error(f"Error deleting file: {e}")
+    return False
+
+
+def delete_operation_folder(op_name: str) -> bool:
+    """
+    Delete an entire operation folder and all its contents.
+
+    Args:
+        op_name: Name of the operation folder to delete
+
+    Returns:
+        True if successful, False otherwise
+    """
+    import shutil
+    try:
+        op_folder = LOG_ROOT / op_name
+        if op_folder.exists():
+            shutil.rmtree(op_folder)
+            return True
+    except Exception as e:
+        st.error(f"Error deleting operation folder: {e}")
+    return False
+
+
+def render_saved_files():
+    """Render the saved files browser with view, download, and delete functionality."""
+    st.markdown("## Saved Files")
+    st.markdown("""
+    Browse, view, download, or delete text files saved from planning sessions.
+    Files are organized by **Operation** and **Phase**.
+    """)
+
+    # Initialize session state for delete confirmations
+    if "delete_confirmations" not in st.session_state:
+        st.session_state.delete_confirmations = set()
+
+    # Get the file structure
+    files_structure = get_saved_files_structure()
+
+    if not files_structure:
+        st.info("No saved files found. Run a planning session to generate files.")
+        st.markdown("""
+        Files are automatically saved to the `wargate_logs/` directory during planning sessions:
+        - **Staff Meeting Minutes** - Dialogue from staff meetings
+        - **Slides** - Briefing slide content
+        - **Commander Brief Minutes** - Commander briefing dialogue
+        - **Commander Guidance** - Direction from the commander
+        """)
+        return
+
+    # Summary metrics
+    total_operations = len(files_structure)
+    total_files = sum(
+        len(files)
+        for phases in files_structure.values()
+        for files in phases.values()
+    )
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Operations", total_operations)
+    with col2:
+        st.metric("Total Files", total_files)
+
+    st.markdown("---")
+
+    # Phase display name mapping
+    phase_display_names = {
+        "PlanningInitiation": "Step 1: Planning Initiation",
+        "MissionAnalysis": "Step 2: Mission Analysis",
+        "COADevelopment": "Step 3: COA Development",
+        "COAAnalysis": "Step 4: COA Analysis",
+        "COAComparison": "Step 5: COA Comparison",
+        "COAApproval": "Step 6: COA Approval",
+        "PlanDevelopment": "Step 7: Plan Development",
+    }
+
+    # File type icons
+    file_icons = {
+        "Staff_Meeting_Minutes.txt": "📝",
+        "Slides.txt": "📊",
+        "Brief_CMDR_Minutes.txt": "🎖️",
+        "CMDR_Guidance.txt": "📋",
+    }
+
+    # Render each operation as an expander
+    for op_name, phases in files_structure.items():
+        op_file_count = sum(len(files) for files in phases.values())
+
+        with st.expander(f"📁 **{op_name}** ({op_file_count} files)", expanded=False):
+            # Delete entire operation button
+            delete_op_key = f"delete_op_{op_name}"
+
+            if delete_op_key in st.session_state.delete_confirmations:
+                st.warning(f"⚠️ Delete ALL files in '{op_name}'?")
+                col_confirm, col_cancel = st.columns(2)
+                with col_confirm:
+                    if st.button("✓ Confirm Delete", key=f"confirm_{delete_op_key}", type="primary"):
+                        if delete_operation_folder(op_name):
+                            st.session_state.delete_confirmations.discard(delete_op_key)
+                            st.success(f"Deleted operation: {op_name}")
+                            st.rerun()
+                with col_cancel:
+                    if st.button("✗ Cancel", key=f"cancel_{delete_op_key}"):
+                        st.session_state.delete_confirmations.discard(delete_op_key)
+                        st.rerun()
+            else:
+                if st.button(f"🗑️ Delete Entire Operation", key=delete_op_key):
+                    st.session_state.delete_confirmations.add(delete_op_key)
+                    st.rerun()
+
+            st.markdown("---")
+
+            # Render each phase
+            for phase_name, files in phases.items():
+                phase_display = phase_display_names.get(phase_name, phase_name)
+                st.markdown(f"#### {phase_display}")
+
+                # Render each file
+                for file_path in files:
+                    file_name = file_path.name
+                    icon = file_icons.get(file_name, "📄")
+
+                    # Create a container for each file
+                    with st.container():
+                        st.markdown(f"{icon} **{file_name}**")
+
+                        # Action buttons in columns
+                        col_view, col_download, col_delete = st.columns([1, 1, 1])
+
+                        # Unique key for this file
+                        file_key = str(file_path).replace("/", "_").replace("\\", "_").replace(".", "_")
+
+                        with col_view:
+                            if st.button("👁️ View", key=f"view_{file_key}"):
+                                st.session_state[f"viewing_{file_key}"] = True
+
+                        with col_download:
+                            try:
+                                file_content = file_path.read_text(encoding="utf-8")
+                                st.download_button(
+                                    "⬇️ Download",
+                                    data=file_content,
+                                    file_name=file_name,
+                                    mime="text/plain",
+                                    key=f"download_{file_key}",
+                                )
+                            except Exception as e:
+                                st.error(f"Error reading file: {e}")
+
+                        with col_delete:
+                            delete_file_key = f"delete_file_{file_key}"
+
+                            if delete_file_key in st.session_state.delete_confirmations:
+                                if st.button("✓ Confirm", key=f"confirm_{delete_file_key}", type="primary"):
+                                    if delete_file_safely(file_path):
+                                        st.session_state.delete_confirmations.discard(delete_file_key)
+                                        st.success(f"Deleted: {file_name}")
+                                        st.rerun()
+                                if st.button("✗ Cancel", key=f"cancel2_{delete_file_key}"):
+                                    st.session_state.delete_confirmations.discard(delete_file_key)
+                                    st.rerun()
+                            else:
+                                if st.button("🗑️ Delete", key=delete_file_key):
+                                    st.session_state.delete_confirmations.add(delete_file_key)
+                                    st.rerun()
+
+                        # Show file content if viewing
+                        if st.session_state.get(f"viewing_{file_key}", False):
+                            try:
+                                file_content = file_path.read_text(encoding="utf-8")
+                                st.text_area(
+                                    "File Content",
+                                    value=file_content,
+                                    height=400,
+                                    key=f"content_{file_key}",
+                                    disabled=True,
+                                )
+                                if st.button("Close", key=f"close_{file_key}"):
+                                    st.session_state[f"viewing_{file_key}"] = False
+                                    st.rerun()
+                            except Exception as e:
+                                st.error(f"Error reading file: {e}")
+
+                        st.markdown("---")
+
+
 def render_planning_dashboard():
     """Render the main planning dashboard with all phases and transcript archive."""
     st.markdown("## Joint Planning Process Dashboard")
@@ -4372,20 +4629,30 @@ def main():
             st.markdown('</div>', unsafe_allow_html=True)
 
     elif st.session_state.phase_outputs:
-        # After a run, show planning outputs as default with instructions in second tab
-        planning_tab, instructions_tab = st.tabs(["Planning Outputs", "Pipeline Instructions"])
+        # After a run, show planning outputs as default with instructions and saved files tabs
+        planning_tab, saved_files_tab, instructions_tab = st.tabs([
+            "Planning Outputs", "Saved Files", "Pipeline Instructions"
+        ])
 
         with planning_tab:
             render_planning_dashboard()
 
+        with saved_files_tab:
+            render_saved_files()
+
         with instructions_tab:
             render_pipeline_instructions()
     else:
-        # Before a run, show welcome page with instructions in second tab
-        welcome_tab, instructions_tab = st.tabs(["Getting Started", "Pipeline Instructions"])
+        # Before a run, show welcome page with instructions and saved files tabs
+        welcome_tab, saved_files_tab, instructions_tab = st.tabs([
+            "Getting Started", "Saved Files", "Pipeline Instructions"
+        ])
 
         with welcome_tab:
             render_welcome()
+
+        with saved_files_tab:
+            render_saved_files()
 
         with instructions_tab:
             render_pipeline_instructions()
