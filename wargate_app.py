@@ -1515,6 +1515,14 @@ section[data-testid="stSidebar"] hr {
     background-color: var(--bg-primary) !important;
 }
 
+/* Disabled text areas (file content view) - keep text readable */
+.stTextArea textarea:disabled {
+    color: #E6E6E6 !important;
+    background-color: #1a1a2e !important;
+    -webkit-text-fill-color: #E6E6E6 !important;
+    opacity: 1 !important;
+}
+
 .stTextInput input {
     color: var(--text-primary) !important;
     background-color: var(--bg-primary) !important;
