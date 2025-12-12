@@ -955,6 +955,7 @@ section[data-testid="stSidebar"] hr {
     letter-spacing: 0.05em;
     box-shadow: 0 2px 4px var(--shadow-color);
     transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
 .stButton > button:hover {
