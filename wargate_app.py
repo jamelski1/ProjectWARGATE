@@ -60,6 +60,7 @@ from wargate_orchestration import (
     create_orchestrator,
 )
 from wargate import WARGATEConfig
+from langchain_openai import ChatOpenAI
 
 
 # =============================================================================
@@ -157,6 +158,57 @@ def sanitize_name(name: str) -> str:
     name = re.sub(r"_+", "_", name)
     # Trim leading/trailing underscores
     return name.strip("_") or "Operation"
+
+
+def generate_operation_name(scenario_text: str, model_name: str = "gpt-4o") -> str:
+    """
+    Generate a contextual operation name based on the scenario content.
+
+    Uses an LLM to analyze the scenario and create a fitting military-style
+    operation name (e.g., "Operation IRON SHIELD", "Operation CYBER DAWN").
+
+    Args:
+        scenario_text: The operational scenario text
+        model_name: The OpenAI model to use
+
+    Returns:
+        A generated operation name, or empty string if generation fails
+    """
+    if not scenario_text or not scenario_text.strip():
+        return ""
+
+    # Truncate very long scenarios to save tokens
+    scenario_preview = scenario_text[:2000] if len(scenario_text) > 2000 else scenario_text
+
+    prompt = f"""Based on the following military/operational scenario, generate a fitting operation name.
+
+The name should:
+- Follow military naming conventions (e.g., "Operation IRON SHIELD", "Operation CYBER DAWN")
+- Be relevant to the scenario's theme, domain, or objectives
+- Use 1-3 words after "Operation" (typically in ALL CAPS)
+- Be memorable and professional
+
+Scenario:
+{scenario_preview}
+
+Respond with ONLY the operation name (e.g., "Operation THUNDER FORGE"). No explanation or additional text."""
+
+    try:
+        llm = ChatOpenAI(model=model_name, temperature=0.7, max_tokens=50)
+        response = llm.invoke(prompt)
+        name = response.content.strip()
+
+        # Clean up the response - ensure it starts with "Operation"
+        if not name.lower().startswith("operation"):
+            name = f"Operation {name}"
+
+        # Remove quotes if present
+        name = name.strip('"\'')
+
+        return name
+    except Exception:
+        # If generation fails, return empty string (user can enter manually)
+        return ""
 
 
 def save_phase_text_log(
@@ -3125,6 +3177,8 @@ def init_session_state():
         "model_name": "gpt-4o",
         "temperature": 0.8,  # Higher default for natural dialogue
         "persona_seed": 0,
+        # Operation name (auto-generated from scenario, editable)
+        "operation_name": "",
         # New orchestration state
         "orchestrator": None,
         "live_turns": [],           # Current live dialogue turns
@@ -3277,6 +3331,43 @@ def render_sidebar():
 
         st.markdown("---")
 
+        # Operation Name (optional, auto-generated)
+        st.subheader("Operation Name")
+
+        op_name_col1, op_name_col2 = st.columns([3, 1])
+
+        with op_name_col1:
+            operation_name = st.text_input(
+                "Operation Name",
+                value=st.session_state.operation_name,
+                placeholder="Operation THUNDER SHIELD",
+                help="Auto-generated from scenario or enter your own. Leave blank for default.",
+                label_visibility="collapsed"
+            )
+
+        with op_name_col2:
+            generate_clicked = st.button(
+                "Generate",
+                disabled=not scenario or not scenario.strip() or st.session_state.is_running,
+                use_container_width=True,
+                help="Generate a contextual operation name from the scenario"
+            )
+
+        if generate_clicked and scenario and scenario.strip():
+            with st.spinner("Generating..."):
+                generated_name = generate_operation_name(scenario, model_name)
+                if generated_name:
+                    st.session_state.operation_name = generated_name
+                    st.rerun()
+                else:
+                    st.warning("Could not generate name. Please enter manually.")
+
+        # Update session state if user manually edited
+        if operation_name != st.session_state.operation_name:
+            st.session_state.operation_name = operation_name
+
+        st.markdown("---")
+
         # Action buttons
         col1, col2 = st.columns(2)
 
@@ -3294,6 +3385,7 @@ def render_sidebar():
                 reset_keys = {
                     "planning_result": None,
                     "scenario_text": "",
+                    "operation_name": "",
                     "phase_outputs": {},
                     "dialogue_history": [],
                     "pdf_slides": {},
@@ -3336,6 +3428,7 @@ def render_sidebar():
             "temperature": temperature,
             "persona_seed": persona_seed if persona_seed is not None and persona_seed > 0 else None,
             "scenario": scenario,
+            "operation_name": operation_name,
             "run_clicked": run_clicked,
         }
 
@@ -4356,7 +4449,7 @@ def run_single_phase_interactive(phase: JPPPhase, scenario: str) -> bool:
             st.session_state.phase_results[phase.name] = phase_result
 
             # Get operation name from session state or default
-            op_name = st.session_state.get("operation_name", "Operation WARGATE")
+            op_name = st.session_state.get("operation_name", "") or "Operation WARGATE"
 
             # IMMEDIATELY save text logs - error resilient
             # These are the primary output for NotebookLM/external tools
@@ -4483,7 +4576,7 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                 )
 
                 # Get operation name from session state or default
-                op_name = st.session_state.get("operation_name", "Operation WARGATE")
+                op_name = st.session_state.get("operation_name", "") or "Operation WARGATE"
 
                 # IMMEDIATELY save text logs - error resilient
                 # These are the primary output for NotebookLM/external tools
