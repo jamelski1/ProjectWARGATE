@@ -4619,14 +4619,25 @@ def main():
 
     # Main content - show different views based on state
     if st.session_state.is_running:
-        # Show running indicator (shouldn't normally reach here, but safety fallback)
-        st.info("🔄 Planning in progress... Please wait.")
-        if st.session_state.live_turns:
-            st.markdown("### Live Dialogue")
-            st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
-            for turn in st.session_state.live_turns:
-                render_dialogue_bubble_from_turn(turn)
-            st.markdown('</div>', unsafe_allow_html=True)
+        # Show tabs even during running state so user can access Saved Files and Instructions
+        running_tab, saved_files_tab, instructions_tab = st.tabs([
+            "Planning in Progress", "Saved Files", "Pipeline Instructions"
+        ])
+
+        with running_tab:
+            st.info("🔄 Planning in progress... Please wait.")
+            if st.session_state.live_turns:
+                st.markdown("### Live Dialogue")
+                st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
+                for turn in st.session_state.live_turns:
+                    render_dialogue_bubble_from_turn(turn)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        with saved_files_tab:
+            render_saved_files()
+
+        with instructions_tab:
+            render_pipeline_instructions()
 
     elif st.session_state.phase_outputs:
         # After a run, show planning outputs as default with instructions and saved files tabs
