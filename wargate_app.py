@@ -3408,7 +3408,7 @@ def render_phase_section(
                             st.markdown("---")
                     st.markdown('</div>', unsafe_allow_html=True)
 
-                if "pdf" in output:
+                if "pdf" in output and output["pdf"] is not None:
                     st.download_button(
                         f"Download {phase_name} Slides (PDF)",
                         data=output["pdf"],
