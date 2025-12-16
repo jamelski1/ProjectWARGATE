@@ -3350,7 +3350,7 @@ def render_sidebar():
         st.markdown("---")
 
         # Action buttons
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns([3, 2])
 
         with col1:
             run_clicked = st.button(
