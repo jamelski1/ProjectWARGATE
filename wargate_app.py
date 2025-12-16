@@ -3350,7 +3350,7 @@ def render_sidebar():
         st.markdown("---")
 
         # Action buttons
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns([3, 2])
 
         with col1:
             run_clicked = st.button(
@@ -3904,6 +3904,17 @@ def render_saved_files():
         "PlanDevelopment": "Step 7: Plan Development",
     }
 
+    # Phase order for sorting (by step number)
+    phase_order = {
+        "PlanningInitiation": 1,
+        "MissionAnalysis": 2,
+        "COADevelopment": 3,
+        "COAAnalysis": 4,
+        "COAComparison": 5,
+        "COAApproval": 6,
+        "PlanDevelopment": 7,
+    }
+
     # File type icons
     file_icons = {
         "Staff_Meeting_Minutes.txt": "📝",
@@ -3940,8 +3951,9 @@ def render_saved_files():
 
             st.markdown("---")
 
-            # Render each phase
-            for phase_name, files in phases.items():
+            # Render each phase (sorted by step number)
+            sorted_phases = sorted(phases.items(), key=lambda x: phase_order.get(x[0], 99))
+            for phase_name, files in sorted_phases:
                 phase_display = phase_display_names.get(phase_name, phase_name)
                 st.markdown(f"#### {phase_display}")
 
