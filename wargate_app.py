@@ -4719,7 +4719,7 @@ def main():
 
             if success:
                 st.rerun()
-            return  # Don't render tabs after run - will rerun
+            # Don't return here - let tabs render even if planning failed
 
     # Main content - show different views based on state
     if st.session_state.is_running:
