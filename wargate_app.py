@@ -4145,12 +4145,25 @@ def refresh_saved_files_container():
     """
     container = st.session_state.get("saved_files_container")
     if container is not None:
+        # Increment render counter to ensure unique keys on each refresh
+        if "saved_files_render_id" not in st.session_state:
+            st.session_state.saved_files_render_id = 0
+        st.session_state.saved_files_render_id += 1
+
         with container.container():
-            render_saved_files()
+            render_saved_files(render_id=st.session_state.saved_files_render_id)
 
 
-def render_saved_files():
-    """Render the saved files browser with view, download, and delete functionality."""
+def render_saved_files(render_id: int = 0):
+    """Render the saved files browser with view, download, and delete functionality.
+
+    Args:
+        render_id: Unique identifier for this render to prevent duplicate key errors
+                   when refreshing the container multiple times during a run.
+    """
+    # Key suffix to ensure uniqueness across refreshes
+    key_suffix = f"_r{render_id}" if render_id > 0 else ""
+
     st.markdown("## Saved Files")
     st.markdown("""
     Browse, view, download, or delete text files saved from planning sessions.
@@ -4234,17 +4247,17 @@ def render_saved_files():
                 st.warning(f"⚠️ Delete ALL files in '{op_name}'?")
                 col_confirm, col_cancel = st.columns(2)
                 with col_confirm:
-                    if st.button("✓ Confirm Delete", key=f"confirm_{delete_op_key}", type="primary"):
+                    if st.button("✓ Confirm Delete", key=f"confirm_{delete_op_key}{key_suffix}", type="primary"):
                         if delete_operation_folder(op_name):
                             st.session_state.delete_confirmations.discard(delete_op_key)
                             st.success(f"Deleted operation: {op_name}")
                             st.rerun()
                 with col_cancel:
-                    if st.button("✗ Cancel", key=f"cancel_{delete_op_key}"):
+                    if st.button("✗ Cancel", key=f"cancel_{delete_op_key}{key_suffix}"):
                         st.session_state.delete_confirmations.discard(delete_op_key)
                         st.rerun()
             else:
-                if st.button(f"🗑️ Delete Entire Operation", key=delete_op_key):
+                if st.button(f"🗑️ Delete Entire Operation", key=f"{delete_op_key}{key_suffix}"):
                     st.session_state.delete_confirmations.add(delete_op_key)
                     st.rerun()
 
@@ -4272,7 +4285,7 @@ def render_saved_files():
                         file_key = str(file_path).replace("/", "_").replace("\\", "_").replace(".", "_")
 
                         with col_view:
-                            if st.button("👁️ View", key=f"view_{file_key}"):
+                            if st.button("👁️ View", key=f"view_{file_key}{key_suffix}"):
                                 st.session_state[f"viewing_{file_key}"] = True
 
                         with col_download:
@@ -4283,7 +4296,7 @@ def render_saved_files():
                                     data=file_content,
                                     file_name=file_name,
                                     mime="text/plain",
-                                    key=f"download_{file_key}",
+                                    key=f"download_{file_key}{key_suffix}",
                                 )
                             except Exception as e:
                                 st.error(f"Error reading file: {e}")
@@ -4292,16 +4305,16 @@ def render_saved_files():
                             delete_file_key = f"delete_file_{file_key}"
 
                             if delete_file_key in st.session_state.delete_confirmations:
-                                if st.button("✓ Confirm", key=f"confirm_{delete_file_key}", type="primary"):
+                                if st.button("✓ Confirm", key=f"confirm_{delete_file_key}{key_suffix}", type="primary"):
                                     if delete_file_safely(file_path):
                                         st.session_state.delete_confirmations.discard(delete_file_key)
                                         st.success(f"Deleted: {file_name}")
                                         st.rerun()
-                                if st.button("✗ Cancel", key=f"cancel2_{delete_file_key}"):
+                                if st.button("✗ Cancel", key=f"cancel2_{delete_file_key}{key_suffix}"):
                                     st.session_state.delete_confirmations.discard(delete_file_key)
                                     st.rerun()
                             else:
-                                if st.button("🗑️ Delete", key=delete_file_key):
+                                if st.button("🗑️ Delete", key=f"{delete_file_key}{key_suffix}"):
                                     st.session_state.delete_confirmations.add(delete_file_key)
                                     st.rerun()
 
@@ -4313,10 +4326,10 @@ def render_saved_files():
                                     "File Content",
                                     value=file_content,
                                     height=400,
-                                    key=f"content_{file_key}",
+                                    key=f"content_{file_key}{key_suffix}",
                                     disabled=True,
                                 )
-                                if st.button("Close", key=f"close_{file_key}"):
+                                if st.button("Close", key=f"close_{file_key}{key_suffix}"):
                                     st.session_state[f"viewing_{file_key}"] = False
                                     st.rerun()
                             except Exception as e:
