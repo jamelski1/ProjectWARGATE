@@ -3854,6 +3854,20 @@ def delete_operation_folder(op_name: str) -> bool:
     return False
 
 
+def refresh_saved_files_container():
+    """
+    Refresh the saved files display in the Saved Files tab.
+
+    This function re-renders the saved files list into the st.empty() container
+    stored in session state. Call this after saving new files to update the UI
+    incrementally during a planning run.
+    """
+    container = st.session_state.get("saved_files_container")
+    if container is not None:
+        with container.container():
+            render_saved_files()
+
+
 def render_saved_files():
     """Render the saved files browser with view, download, and delete functionality."""
     st.markdown("## Saved Files")
@@ -4463,6 +4477,8 @@ def run_single_phase_interactive(phase: JPPPhase, scenario: str) -> bool:
                             st.caption(f"  {substep}: {filepath.resolve()}")
                     with status_container:
                         st.success(f"{phase_info['name']} complete! Text logs saved to wargate_logs/")
+                    # INCREMENTAL UI UPDATE: Refresh Saved Files tab immediately
+                    refresh_saved_files_container()
                 else:
                     with status_container:
                         st.warning(f"{phase_info['name']} complete but no text logs were generated.")
@@ -4589,6 +4605,9 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                             for substep, filepath in saved_files.items():
                                 st.caption(f"  {substep}: {filepath.resolve()}")
                                 print(f"  Saved: {filepath.resolve()}")  # Also log to console
+                        # INCREMENTAL UI UPDATE: Refresh Saved Files tab immediately
+                        # so user can see new files appear during the run
+                        refresh_saved_files_container()
                 except Exception as log_error:
                     st.warning(f"Text log saving for {phase_info['name']} failed: {log_error}")
                     st.exception(log_error)  # Show full traceback
@@ -4713,9 +4732,14 @@ def main():
         "Planning", "Saved Files", "Pipeline Instructions"
     ])
 
-    # Saved Files tab - always the same content
+    # Saved Files tab - use st.empty() for incremental updates during planning
     with saved_files_tab:
-        render_saved_files()
+        # Create a container that can be refreshed during planning execution
+        saved_files_container = st.empty()
+        st.session_state.saved_files_container = saved_files_container
+        # Render initial content
+        with saved_files_container.container():
+            render_saved_files()
 
     # Pipeline Instructions tab - always the same content
     with instructions_tab:
