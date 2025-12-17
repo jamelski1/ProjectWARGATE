@@ -4684,7 +4684,9 @@ def main():
     # Sidebar
     inputs = render_sidebar()
 
-    # Handle run button - just set flags and rerun to show "in progress" UI
+    # Handle run button - set flags but DON'T rerun yet
+    # We'll execute planning AFTER tabs are created so tabs stay visible
+    should_start_planning = False
     if inputs["run_clicked"]:
         if not inputs["scenario"]:
             st.warning("⚠️ Please enter a scenario before running the planning process.")
@@ -4701,93 +4703,100 @@ def main():
                 "temperature": inputs["temperature"],
                 "persona_seed": inputs["persona_seed"]
             }
-            st.rerun()  # Rerun to show "in progress" tabs before blocking call
+            should_start_planning = True
 
-    # Main content - show different views based on state
-    if st.session_state.is_running:
-        # Show tabs even during running state so user can access Saved Files and Instructions
-        running_tab, saved_files_tab, instructions_tab = st.tabs([
-            "Planning in Progress", "Saved Files", "Pipeline Instructions"
-        ])
+    # ==========================================================================
+    # SINGLE TAB CONTAINER - Created ONCE, never recreated
+    # ==========================================================================
+    # Always use the same tab names so the container is never destroyed/recreated
+    planning_tab, saved_files_tab, instructions_tab = st.tabs([
+        "Planning", "Saved Files", "Pipeline Instructions"
+    ])
 
-        with running_tab:
-            st.info("🔄 Planning in progress... Please wait.")
+    # Saved Files tab - always the same content
+    with saved_files_tab:
+        render_saved_files()
 
-            # Execute planning here, inside the tab, after tabs are rendered
+    # Pipeline Instructions tab - always the same content
+    with instructions_tab:
+        render_pipeline_instructions()
+
+    # Planning tab - content varies based on state, but tab itself is persistent
+    with planning_tab:
+        # Create persistent containers INSIDE the tab for incremental updates
+        status_placeholder = st.empty()
+        content_placeholder = st.empty()
+
+        if st.session_state.is_running:
+            # Show running state
+            status_placeholder.info("🔄 Planning in progress... Please wait.")
+
+            # Execute planning if we just clicked RUN or have pending inputs
             pending_inputs = st.session_state.get("pending_planning_inputs")
-            if pending_inputs:
-                # Clear pending inputs so we don't re-run on next rerun
-                st.session_state.pending_planning_inputs = None
+            if pending_inputs or should_start_planning:
+                if pending_inputs:
+                    planning_inputs = pending_inputs
+                    st.session_state.pending_planning_inputs = None
+                else:
+                    planning_inputs = {
+                        "scenario": inputs["scenario"],
+                        "model_name": inputs["model_name"],
+                        "temperature": inputs["temperature"],
+                        "persona_seed": inputs["persona_seed"]
+                    }
 
-                # Auto-generate operation name if user left it blank
+                # Auto-generate operation name if blank
                 if not st.session_state.operation_name:
                     with st.spinner("J3 generating operation name..."):
                         generated_name = generate_operation_name(
-                            pending_inputs["scenario"],
-                            pending_inputs["model_name"]
+                            planning_inputs["scenario"],
+                            planning_inputs["model_name"]
                         )
                         if generated_name:
                             st.session_state.operation_name = generated_name
 
                 try:
+                    # Planning runs HERE, AFTER tabs are created
+                    # The run_full_planning_orchestrated function uses st.empty()
+                    # containers which support incremental updates during execution
                     success = run_full_planning(
-                        scenario=pending_inputs["scenario"],
-                        model_name=pending_inputs["model_name"],
-                        temperature=pending_inputs["temperature"],
-                        persona_seed=pending_inputs["persona_seed"]
+                        scenario=planning_inputs["scenario"],
+                        model_name=planning_inputs["model_name"],
+                        temperature=planning_inputs["temperature"],
+                        persona_seed=planning_inputs["persona_seed"]
                     )
                 except Exception as e:
                     st.error(f"❌ Planning failed with error: {str(e)}")
                     st.exception(e)
                     success = False
                 finally:
-                    # Always reset is_running to prevent stuck button
                     st.session_state.is_running = False
 
+                # Clear status and rerun to show results
+                status_placeholder.empty()
                 if success:
                     st.rerun()
 
-            if st.session_state.live_turns:
-                st.markdown("### Live Dialogue")
-                st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
-                for turn in st.session_state.live_turns:
-                    render_dialogue_bubble_from_turn(turn)
-                st.markdown('</div>', unsafe_allow_html=True)
+            # Show live dialogue if available
+            with content_placeholder.container():
+                if st.session_state.live_turns:
+                    st.markdown("### Live Dialogue")
+                    st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
+                    for turn in st.session_state.live_turns:
+                        render_dialogue_bubble_from_turn(turn)
+                    st.markdown('</div>', unsafe_allow_html=True)
 
-        with saved_files_tab:
-            render_saved_files()
+        elif st.session_state.phase_outputs:
+            # Show planning results
+            status_placeholder.empty()
+            with content_placeholder.container():
+                render_planning_dashboard()
 
-        with instructions_tab:
-            render_pipeline_instructions()
-
-    elif st.session_state.phase_outputs:
-        # After a run, show planning outputs as default with instructions and saved files tabs
-        planning_tab, saved_files_tab, instructions_tab = st.tabs([
-            "Planning Outputs", "Saved Files", "Pipeline Instructions"
-        ])
-
-        with planning_tab:
-            render_planning_dashboard()
-
-        with saved_files_tab:
-            render_saved_files()
-
-        with instructions_tab:
-            render_pipeline_instructions()
-    else:
-        # Before a run, show welcome page with instructions and saved files tabs
-        welcome_tab, saved_files_tab, instructions_tab = st.tabs([
-            "Getting Started", "Saved Files", "Pipeline Instructions"
-        ])
-
-        with welcome_tab:
-            render_welcome()
-
-        with saved_files_tab:
-            render_saved_files()
-
-        with instructions_tab:
-            render_pipeline_instructions()
+        else:
+            # Show welcome page
+            status_placeholder.empty()
+            with content_placeholder.container():
+                render_welcome()
 
 
 # NOTE: The pipeline diagram is rendered ONLY in render_pipeline_instructions()
