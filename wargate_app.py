@@ -3190,6 +3190,8 @@ def init_session_state():
         # Enhanced UX state
         "phase_transcripts": {},    # Full transcripts per phase for archive
         "micro_progress_index": 0,  # Current micro-progress message index
+        # Pending planning inputs (for deferred execution after UI renders)
+        "pending_planning_inputs": None,
     }
 
     for key, default in defaults.items():
@@ -3376,6 +3378,7 @@ def render_sidebar():
                     "phase_results": {},
                     "prior_context": "",
                     "is_running": False,
+                    "pending_planning_inputs": None,
                 }
                 for key, default_value in reset_keys.items():
                     st.session_state[key] = default_value
@@ -4681,7 +4684,7 @@ def main():
     # Sidebar
     inputs = render_sidebar()
 
-    # Handle run button
+    # Handle run button - just set flags and rerun to show "in progress" UI
     if inputs["run_clicked"]:
         if not inputs["scenario"]:
             st.warning("⚠️ Please enter a scenario before running the planning process.")
@@ -4691,35 +4694,14 @@ def main():
             st.session_state.scenario_text = inputs["scenario"]
             st.session_state.is_running = True
             st.session_state.current_phase = JPPPhase.PLANNING_INITIATION
-
-            # Auto-generate operation name if user left it blank
-            if not st.session_state.operation_name:
-                with st.spinner("J3 generating operation name..."):
-                    generated_name = generate_operation_name(
-                        inputs["scenario"],
-                        inputs["model_name"]
-                    )
-                    if generated_name:
-                        st.session_state.operation_name = generated_name
-
-            try:
-                success = run_full_planning(
-                    scenario=inputs["scenario"],
-                    model_name=inputs["model_name"],
-                    temperature=inputs["temperature"],
-                    persona_seed=inputs["persona_seed"]
-                )
-            except Exception as e:
-                st.error(f"❌ Planning failed with error: {str(e)}")
-                st.exception(e)
-                success = False
-            finally:
-                # Always reset is_running to prevent stuck button
-                st.session_state.is_running = False
-
-            if success:
-                st.rerun()
-            # Don't return here - let tabs render even if planning failed
+            # Store inputs for planning execution
+            st.session_state.pending_planning_inputs = {
+                "scenario": inputs["scenario"],
+                "model_name": inputs["model_name"],
+                "temperature": inputs["temperature"],
+                "persona_seed": inputs["persona_seed"]
+            }
+            st.rerun()  # Rerun to show "in progress" tabs before blocking call
 
     # Main content - show different views based on state
     if st.session_state.is_running:
@@ -4730,6 +4712,41 @@ def main():
 
         with running_tab:
             st.info("🔄 Planning in progress... Please wait.")
+
+            # Execute planning here, inside the tab, after tabs are rendered
+            pending_inputs = st.session_state.get("pending_planning_inputs")
+            if pending_inputs:
+                # Clear pending inputs so we don't re-run on next rerun
+                st.session_state.pending_planning_inputs = None
+
+                # Auto-generate operation name if user left it blank
+                if not st.session_state.operation_name:
+                    with st.spinner("J3 generating operation name..."):
+                        generated_name = generate_operation_name(
+                            pending_inputs["scenario"],
+                            pending_inputs["model_name"]
+                        )
+                        if generated_name:
+                            st.session_state.operation_name = generated_name
+
+                try:
+                    success = run_full_planning(
+                        scenario=pending_inputs["scenario"],
+                        model_name=pending_inputs["model_name"],
+                        temperature=pending_inputs["temperature"],
+                        persona_seed=pending_inputs["persona_seed"]
+                    )
+                except Exception as e:
+                    st.error(f"❌ Planning failed with error: {str(e)}")
+                    st.exception(e)
+                    success = False
+                finally:
+                    # Always reset is_running to prevent stuck button
+                    st.session_state.is_running = False
+
+                if success:
+                    st.rerun()
+
             if st.session_state.live_turns:
                 st.markdown("### Live Dialogue")
                 st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
