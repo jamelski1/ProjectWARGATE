@@ -3354,7 +3354,7 @@ def render_sidebar():
 
         with col1:
             run_clicked = st.button(
-                "RUN PLANNING",
+                "RUN",
                 type="primary",
                 disabled=st.session_state.is_running,
                 use_container_width=True
@@ -3626,14 +3626,14 @@ def render_welcome():
     ### Getting Started
 
     1. **Enter a Scenario** in the sidebar
-    2. **Click "RUN PLANNING"** to begin
+    2. **Click "RUN"** to begin
     3. **Review** each phase as it completes
     4. **Download** PDF slides for any phase
     5. **Proceed** through all 7 steps
 
     ---
 
-    *Enter your scenario in the sidebar and click **RUN PLANNING** to begin the Joint Planning Process.*
+    *Enter your scenario in the sidebar and click **RUN** to begin the Joint Planning Process.*
     """)
 
 
