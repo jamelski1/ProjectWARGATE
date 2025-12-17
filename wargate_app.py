@@ -211,6 +211,210 @@ Respond with ONLY the operation name (e.g., "Operation THUNDER FORGE"). No expla
         return ""
 
 
+# =============================================================================
+# SITUATION FRAME & STEP DELTA GENERATION
+# =============================================================================
+
+def generate_situation_frame(scenario_text: str, model_name: str = "gpt-4o") -> dict:
+    """
+    Generate a distilled situation frame from the scenario.
+
+    This creates a persistent context summary that helps users maintain
+    orientation throughout a long planning run.
+
+    Args:
+        scenario_text: The full operational scenario text
+        model_name: The OpenAI model to use
+
+    Returns:
+        Dict with keys: scenario_summary, key_stakes, adversary_intent
+    """
+    if not scenario_text or not scenario_text.strip():
+        return {
+            "scenario_summary": "No scenario provided.",
+            "key_stakes": "Unknown",
+            "adversary_intent": "Unknown"
+        }
+
+    # Truncate very long scenarios
+    scenario_preview = scenario_text[:4000] if len(scenario_text) > 4000 else scenario_text
+
+    prompt = f"""Analyze this operational scenario and provide a CONCISE situation frame.
+
+SCENARIO:
+{scenario_preview}
+
+Respond in this EXACT JSON format (no markdown, just raw JSON):
+{{
+    "scenario_summary": "<1-2 paragraph distillation of what this operation is about - focus on the core problem, not details>",
+    "key_stakes": "<What's at risk? What are the consequences of failure? 2-3 sentences max>",
+    "adversary_intent": "<What does the adversary want? What are they trying to achieve? 2-3 sentences max>"
+}}
+
+Be concise and actionable. This is a synthesis layer, not a summary of the full text."""
+
+    try:
+        llm = ChatOpenAI(model=model_name, temperature=0.3, max_tokens=500)
+        response = llm.invoke(prompt)
+        content = response.content.strip()
+
+        # Try to parse JSON response
+        import json
+        # Handle potential markdown code blocks
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+
+        result = json.loads(content)
+        return {
+            "scenario_summary": result.get("scenario_summary", "Unable to generate summary."),
+            "key_stakes": result.get("key_stakes", "Unknown"),
+            "adversary_intent": result.get("adversary_intent", "Unknown")
+        }
+    except Exception as e:
+        return {
+            "scenario_summary": f"Scenario analysis pending. ({str(e)[:50]})",
+            "key_stakes": "To be determined during planning.",
+            "adversary_intent": "To be assessed during planning."
+        }
+
+
+def generate_step_delta(
+    phase_name: str,
+    phase_result: dict,
+    prior_deltas: list,
+    scenario_summary: str,
+    model_name: str = "gpt-4o"
+) -> dict:
+    """
+    Generate a step delta summary after a phase completes.
+
+    This captures what was learned, what changed, and key tensions identified.
+
+    Args:
+        phase_name: Name of the phase that just completed
+        phase_result: The PhaseResult dict from the phase
+        prior_deltas: List of previous step deltas for context
+        scenario_summary: The situation frame summary for context
+        model_name: The OpenAI model to use
+
+    Returns:
+        Dict with keys: step_name, what_learned, what_changed, tensions
+    """
+    # Extract key content from phase result
+    meeting_turns = phase_result.get("meeting", {}).get("turns", [])
+    slides = phase_result.get("slides", [])
+    brief_turns = phase_result.get("brief", {}).get("turns", [])
+    guidance = phase_result.get("guidance", {})
+
+    # Build a condensed summary of what happened in this phase
+    phase_content = []
+
+    if meeting_turns:
+        # Get last few turns as representative
+        recent_turns = meeting_turns[-5:] if len(meeting_turns) > 5 else meeting_turns
+        turn_summary = "\n".join([f"- {t.get('role', 'Unknown')}: {t.get('content', '')[:200]}" for t in recent_turns])
+        phase_content.append(f"Staff Meeting (excerpt):\n{turn_summary}")
+
+    if slides:
+        slide_titles = [s.get("title", "") for s in slides[:5]]
+        phase_content.append(f"Slides covered: {', '.join(slide_titles)}")
+
+    if guidance:
+        guidance_text = guidance.get("guidance_text", "") or guidance.get("content", "")
+        if guidance_text:
+            phase_content.append(f"Commander Guidance: {guidance_text[:300]}")
+
+    # Build context from prior deltas
+    prior_context = ""
+    if prior_deltas:
+        prior_context = "\n".join([
+            f"- {d['step_name']}: {d['what_learned'][:100]}..."
+            for d in prior_deltas[-3:]  # Last 3 deltas
+        ])
+
+    prompt = f"""You are summarizing what was learned in a military planning step.
+
+SITUATION CONTEXT:
+{scenario_summary}
+
+PRIOR STEPS SUMMARY:
+{prior_context if prior_context else "This is the first step."}
+
+CURRENT STEP: {phase_name}
+PHASE CONTENT:
+{chr(10).join(phase_content) if phase_content else "No detailed content available."}
+
+Generate a CONCISE step delta. Respond in this EXACT JSON format (no markdown):
+{{
+    "what_learned": "<1-2 sentences: What key insights or information emerged from this step?>",
+    "what_changed": "<1-2 sentences: How did our understanding evolve from the previous step? What's different now?>",
+    "tensions": "<1-2 sentences: What tradeoffs, risks, or unresolved tensions were identified?>"
+}}
+
+Be specific and actionable. Focus on the DELTA - what's new, not a summary of everything."""
+
+    try:
+        llm = ChatOpenAI(model=model_name, temperature=0.3, max_tokens=300)
+        response = llm.invoke(prompt)
+        content = response.content.strip()
+
+        # Handle potential markdown code blocks
+        import json
+        if content.startswith("```"):
+            content = content.split("```")[1]
+            if content.startswith("json"):
+                content = content[4:]
+
+        result = json.loads(content)
+        return {
+            "step_name": phase_name,
+            "what_learned": result.get("what_learned", "Step completed."),
+            "what_changed": result.get("what_changed", "Understanding refined."),
+            "tensions": result.get("tensions", "No major tensions identified.")
+        }
+    except Exception as e:
+        return {
+            "step_name": phase_name,
+            "what_learned": f"Step {phase_name} completed.",
+            "what_changed": "Analysis in progress.",
+            "tensions": "To be determined."
+        }
+
+
+def save_step_delta_to_file(
+    op_name: str,
+    phase_name: str,
+    delta: dict,
+) -> Path:
+    """Save step delta to a text file alongside other phase artifacts."""
+    safe_op = sanitize_name(op_name)
+    phase_folder = PHASE_FOLDER_MAP.get(phase_name, phase_name)
+
+    target_dir = LOG_ROOT / safe_op / phase_folder
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    content = f"""STEP DELTA SUMMARY
+{'=' * 50}
+Step: {delta.get('step_name', phase_name)}
+{'=' * 50}
+
+WHAT WE LEARNED:
+{delta.get('what_learned', 'N/A')}
+
+WHAT CHANGED:
+{delta.get('what_changed', 'N/A')}
+
+KEY TENSIONS / TRADEOFFS:
+{delta.get('tensions', 'N/A')}
+"""
+
+    file_path = target_dir / "Step_Delta_Summary.txt"
+    file_path.write_text(content, encoding="utf-8")
+    return file_path
+
+
 def save_phase_text_log(
     op_name: str,
     phase_id: str,
@@ -3192,6 +3396,9 @@ def init_session_state():
         "micro_progress_index": 0,  # Current micro-progress message index
         # Pending planning inputs (for deferred execution after UI renders)
         "pending_planning_inputs": None,
+        # Situation Frame & Step Deltas for user orientation
+        "situation_frame": None,    # Dict with scenario_summary, key_stakes, adversary_intent
+        "step_deltas": [],          # List of step delta dicts
     }
 
     for key, default in defaults.items():
@@ -3379,6 +3586,8 @@ def render_sidebar():
                     "prior_context": "",
                     "is_running": False,
                     "pending_planning_inputs": None,
+                    "situation_frame": None,
+                    "step_deltas": [],
                 }
                 for key, default_value in reset_keys.items():
                     st.session_state[key] = default_value
@@ -3596,6 +3805,78 @@ def render_phase_section(
             if st.button(f"PROCEED TO STEP {phase.value + 1}", key=f"next_{phase.value}"):
                 st.session_state.current_phase = JPPPhase(phase.value + 1)
                 st.rerun()
+
+
+def render_situation_panel():
+    """
+    Render the persistent Situation Frame + Step Delta panel.
+
+    This panel provides continuous context for users during long planning runs:
+    - Operation name and scenario summary (always visible)
+    - Key stakes and adversary intent
+    - Cumulative step deltas showing how understanding evolved
+    """
+    st.markdown("### Situation Frame")
+
+    # Get situation frame from session state
+    situation_frame = st.session_state.get("situation_frame")
+    operation_name = st.session_state.get("operation_name", "")
+
+    if not situation_frame and not st.session_state.get("is_running"):
+        st.info("Run planning to generate situation analysis.")
+        return
+
+    # Operation Name
+    if operation_name:
+        st.markdown(f"**{operation_name}**")
+
+    # Scenario Summary
+    if situation_frame:
+        st.markdown("#### What We're Solving")
+        st.markdown(situation_frame.get("scenario_summary", "*Analyzing scenario...*"))
+
+        st.markdown("#### Key Stakes")
+        st.warning(situation_frame.get("key_stakes", "*Assessing stakes...*"))
+
+        st.markdown("#### Adversary Intent")
+        st.error(situation_frame.get("adversary_intent", "*Assessing adversary...*"))
+    elif st.session_state.get("is_running"):
+        st.info("Generating situation frame...")
+
+    # Step Deltas
+    step_deltas = st.session_state.get("step_deltas", [])
+    if step_deltas:
+        st.markdown("---")
+        st.markdown("### Step Deltas")
+        st.caption("How our understanding evolved")
+
+        # Show deltas in reverse order (most recent first)
+        for delta in reversed(step_deltas):
+            step_name = delta.get("step_name", "Unknown Step")
+            # Clean up step name for display
+            display_name = step_name.replace("_", " ").title()
+
+            with st.expander(f"**{display_name}**", expanded=(delta == step_deltas[-1])):
+                st.markdown("**What We Learned:**")
+                st.markdown(f"> {delta.get('what_learned', 'N/A')}")
+
+                st.markdown("**What Changed:**")
+                st.markdown(f"> {delta.get('what_changed', 'N/A')}")
+
+                st.markdown("**Tensions / Tradeoffs:**")
+                st.markdown(f"> {delta.get('tensions', 'N/A')}")
+
+
+def refresh_situation_panel():
+    """
+    Refresh the situation panel display.
+
+    Call this after generating situation frame or step deltas to update the UI.
+    """
+    container = st.session_state.get("situation_panel_container")
+    if container is not None:
+        with container.container():
+            render_situation_panel()
 
 
 def render_welcome():
@@ -3938,6 +4219,7 @@ def render_saved_files():
         "Slides.txt": "📊",
         "Brief_CMDR_Minutes.txt": "🎖️",
         "CMDR_Guidance.txt": "📋",
+        "Step_Delta_Summary.txt": "🔄",
     }
 
     # Render each operation as an expander
@@ -4623,6 +4905,32 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                 except Exception as pdf_error:
                     # PDF generation failure should NOT block phase completion
                     pass  # Text logs are primary, PDFs are secondary
+
+                # Generate Step Delta summary for user orientation
+                try:
+                    situation_frame = st.session_state.get("situation_frame", {})
+                    scenario_summary = situation_frame.get("scenario_summary", "")
+                    prior_deltas = st.session_state.get("step_deltas", [])
+
+                    step_delta = generate_step_delta(
+                        phase_name=phase_info['name'],
+                        phase_result=phase_result,
+                        prior_deltas=prior_deltas,
+                        scenario_summary=scenario_summary,
+                        model_name=st.session_state.model_name
+                    )
+
+                    # Store the delta
+                    st.session_state.step_deltas.append(step_delta)
+
+                    # Save to file alongside other artifacts
+                    save_step_delta_to_file(op_name, phase.name, step_delta)
+
+                    # Refresh situation panel to show new delta
+                    refresh_situation_panel()
+                except Exception as delta_error:
+                    # Step delta generation should not block planning
+                    print(f"Step delta generation failed: {delta_error}")
             else:
                 st.error(f"Phase {phase_info['name']} failed. Stopping.")
                 # Note: Previously completed phases' PDFs are still in session state
@@ -4722,105 +5030,136 @@ def main():
                 "temperature": inputs["temperature"],
                 "persona_seed": inputs["persona_seed"]
             }
+            # Reset step deltas for new run
+            st.session_state.step_deltas = []
             should_start_planning = True
 
     # ==========================================================================
-    # SINGLE TAB CONTAINER - Created ONCE, never recreated
+    # MAIN LAYOUT: Content (left) + Situation Panel (right)
     # ==========================================================================
-    # Always use the same tab names so the container is never destroyed/recreated
-    planning_tab, saved_files_tab, instructions_tab = st.tabs([
-        "Planning", "Saved Files", "Pipeline Instructions"
-    ])
+    # Use columns to create persistent right-hand panel for situation awareness
+    main_col, situation_col = st.columns([3, 1])
 
-    # Saved Files tab - use st.empty() for incremental updates during planning
-    with saved_files_tab:
+    # ==========================================================================
+    # RIGHT COLUMN: Persistent Situation Frame + Step Deltas
+    # ==========================================================================
+    with situation_col:
         # Create a container that can be refreshed during planning execution
-        saved_files_container = st.empty()
-        st.session_state.saved_files_container = saved_files_container
+        situation_panel_container = st.empty()
+        st.session_state.situation_panel_container = situation_panel_container
         # Render initial content
-        with saved_files_container.container():
-            render_saved_files()
+        with situation_panel_container.container():
+            render_situation_panel()
 
-    # Pipeline Instructions tab - always the same content
-    with instructions_tab:
-        render_pipeline_instructions()
+    # ==========================================================================
+    # LEFT COLUMN: Main Content with Tabs
+    # ==========================================================================
+    with main_col:
+        # SINGLE TAB CONTAINER - Created ONCE, never recreated
+        # Always use the same tab names so the container is never destroyed/recreated
+        planning_tab, saved_files_tab, instructions_tab = st.tabs([
+            "Planning", "Saved Files", "Pipeline Instructions"
+        ])
 
-    # Planning tab - content varies based on state, but tab itself is persistent
-    with planning_tab:
-        # Create persistent containers INSIDE the tab for incremental updates
-        status_placeholder = st.empty()
-        content_placeholder = st.empty()
+        # Saved Files tab - use st.empty() for incremental updates during planning
+        with saved_files_tab:
+            # Create a container that can be refreshed during planning execution
+            saved_files_container = st.empty()
+            st.session_state.saved_files_container = saved_files_container
+            # Render initial content
+            with saved_files_container.container():
+                render_saved_files()
 
-        if st.session_state.is_running:
-            # Show running state
-            status_placeholder.info("🔄 Planning in progress... Please wait.")
+        # Pipeline Instructions tab - always the same content
+        with instructions_tab:
+            render_pipeline_instructions()
 
-            # Execute planning if we just clicked RUN or have pending inputs
-            pending_inputs = st.session_state.get("pending_planning_inputs")
-            if pending_inputs or should_start_planning:
-                if pending_inputs:
-                    planning_inputs = pending_inputs
-                    st.session_state.pending_planning_inputs = None
-                else:
-                    planning_inputs = {
-                        "scenario": inputs["scenario"],
-                        "model_name": inputs["model_name"],
-                        "temperature": inputs["temperature"],
-                        "persona_seed": inputs["persona_seed"]
-                    }
+        # Planning tab - content varies based on state, but tab itself is persistent
+        with planning_tab:
+            # Create persistent containers INSIDE the tab for incremental updates
+            status_placeholder = st.empty()
+            content_placeholder = st.empty()
 
-                # Auto-generate operation name if blank
-                if not st.session_state.operation_name:
-                    with st.spinner("J3 generating operation name..."):
-                        generated_name = generate_operation_name(
-                            planning_inputs["scenario"],
-                            planning_inputs["model_name"]
+            if st.session_state.is_running:
+                # Show running state
+                status_placeholder.info("🔄 Planning in progress... Please wait.")
+
+                # Execute planning if we just clicked RUN or have pending inputs
+                pending_inputs = st.session_state.get("pending_planning_inputs")
+                if pending_inputs or should_start_planning:
+                    if pending_inputs:
+                        planning_inputs = pending_inputs
+                        st.session_state.pending_planning_inputs = None
+                    else:
+                        planning_inputs = {
+                            "scenario": inputs["scenario"],
+                            "model_name": inputs["model_name"],
+                            "temperature": inputs["temperature"],
+                            "persona_seed": inputs["persona_seed"]
+                        }
+
+                    # Auto-generate operation name if blank
+                    if not st.session_state.operation_name:
+                        with st.spinner("J3 generating operation name..."):
+                            generated_name = generate_operation_name(
+                                planning_inputs["scenario"],
+                                planning_inputs["model_name"]
+                            )
+                            if generated_name:
+                                st.session_state.operation_name = generated_name
+
+                    # Generate Situation Frame at start of planning
+                    if not st.session_state.situation_frame:
+                        with st.spinner("Analyzing scenario context..."):
+                            st.session_state.situation_frame = generate_situation_frame(
+                                planning_inputs["scenario"],
+                                planning_inputs["model_name"]
+                            )
+                            # Refresh the situation panel to show the new frame
+                            refresh_situation_panel()
+
+                    try:
+                        # Planning runs HERE, AFTER tabs are created
+                        # The run_full_planning_orchestrated function uses st.empty()
+                        # containers which support incremental updates during execution
+                        success = run_full_planning(
+                            scenario=planning_inputs["scenario"],
+                            model_name=planning_inputs["model_name"],
+                            temperature=planning_inputs["temperature"],
+                            persona_seed=planning_inputs["persona_seed"]
                         )
-                        if generated_name:
-                            st.session_state.operation_name = generated_name
+                    except Exception as e:
+                        st.error(f"❌ Planning failed with error: {str(e)}")
+                        st.exception(e)
+                        success = False
+                    finally:
+                        st.session_state.is_running = False
 
-                try:
-                    # Planning runs HERE, AFTER tabs are created
-                    # The run_full_planning_orchestrated function uses st.empty()
-                    # containers which support incremental updates during execution
-                    success = run_full_planning(
-                        scenario=planning_inputs["scenario"],
-                        model_name=planning_inputs["model_name"],
-                        temperature=planning_inputs["temperature"],
-                        persona_seed=planning_inputs["persona_seed"]
-                    )
-                except Exception as e:
-                    st.error(f"❌ Planning failed with error: {str(e)}")
-                    st.exception(e)
-                    success = False
-                finally:
-                    st.session_state.is_running = False
+                    # Clear status and rerun to show results
+                    status_placeholder.empty()
+                    if success:
+                        st.rerun()
 
-                # Clear status and rerun to show results
+                # Show live dialogue if available
+                with content_placeholder.container():
+                    if st.session_state.live_turns:
+                        st.markdown("### Live Dialogue")
+                        st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
+                        for turn in st.session_state.live_turns:
+                            render_dialogue_bubble_from_turn(turn)
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+            elif st.session_state.phase_outputs:
+                # Show planning results
                 status_placeholder.empty()
-                if success:
-                    st.rerun()
+                with content_placeholder.container():
+                    render_planning_dashboard()
 
-            # Show live dialogue if available
-            with content_placeholder.container():
-                if st.session_state.live_turns:
-                    st.markdown("### Live Dialogue")
-                    st.markdown('<div class="dialogue-container">', unsafe_allow_html=True)
-                    for turn in st.session_state.live_turns:
-                        render_dialogue_bubble_from_turn(turn)
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-        elif st.session_state.phase_outputs:
-            # Show planning results
-            status_placeholder.empty()
-            with content_placeholder.container():
-                render_planning_dashboard()
-
-        else:
-            # Show welcome page
-            status_placeholder.empty()
-            with content_placeholder.container():
-                render_welcome()
+            else:
+                # Show welcome page
+                status_placeholder.empty()
+                with content_placeholder.container():
+                    render_welcome()
 
 
 # NOTE: The pipeline diagram is rendered ONLY in render_pipeline_instructions()
