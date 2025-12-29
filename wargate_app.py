@@ -4877,6 +4877,10 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
         for idx, phase in enumerate(phases):
             phase_info = JPP_PHASE_INFO[phase]
 
+            # Skip already-completed phases (allows resuming after rerun)
+            if phase.name in st.session_state.phase_outputs:
+                continue
+
             # Update mission terminal status bar
             progress = idx / total_phases
             render_mission_status(
@@ -5161,7 +5165,8 @@ def main():
                 if pending_inputs or should_start_planning:
                     if pending_inputs:
                         planning_inputs = pending_inputs
-                        st.session_state.pending_planning_inputs = None
+                        # NOTE: Don't clear pending_planning_inputs here!
+                        # Keep it until planning completes so reruns can resume.
                     else:
                         planning_inputs = {
                             "scenario": inputs["scenario"],
@@ -5169,6 +5174,8 @@ def main():
                             "temperature": inputs["temperature"],
                             "persona_seed": inputs["persona_seed"]
                         }
+                        # Store inputs so reruns can resume planning
+                        st.session_state.pending_planning_inputs = planning_inputs
 
                     # Auto-generate operation name if blank
                     if not st.session_state.operation_name:
@@ -5206,6 +5213,8 @@ def main():
                         success = False
                     finally:
                         st.session_state.is_running = False
+                        # NOW clear pending inputs - planning is done
+                        st.session_state.pending_planning_inputs = None
 
                     # Clear status and rerun to show results
                     status_placeholder.empty()
