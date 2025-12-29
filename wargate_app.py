@@ -4073,11 +4073,20 @@ def render_agent_chat():
 
     # Message input
     st.markdown("### Your Message")
+
+    # Check if we should clear the message (set after successful send)
+    if st.session_state.get("_clear_chat_message"):
+        st.session_state._clear_chat_message = False
+        default_message = ""
+    else:
+        default_message = st.session_state.get("_chat_message_content", "")
+
     user_message = st.text_area(
         "Enter your question or information:",
+        value=default_message,
         height=120,
         placeholder="Example: What are the key logistics considerations for a 72-hour operation?\n\nOr provide information: The enemy has reinforced their northern positions with an additional armored brigade.",
-        key="agent_chat_message",
+        key="agent_chat_message_input",
     )
 
     # Submit button
@@ -4112,8 +4121,9 @@ def render_agent_chat():
             }
             st.session_state.agent_chat_history.append(chat_entry)
 
-            # Clear the message input
-            st.session_state.agent_chat_message = ""
+            # Set flag to clear message on next render
+            st.session_state._clear_chat_message = True
+            st.session_state._chat_message_content = ""
             st.rerun()
 
     st.markdown("---")
