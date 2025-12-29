@@ -11,10 +11,11 @@ How to run:
     streamlit run wargate_app.py
 
 Requirements:
-    pip install streamlit fpdf2 langchain langchain-openai
+    pip install streamlit fpdf2 langchain langchain-openai requests
 
 Environment:
     export OPENAI_API_KEY="your-api-key"
+    export GEMINI_API_KEY="your-gemini-key"  # Optional: For phase summary images (Nano Banana)
 
 Image Files (place in ./assets/ folder):
     - WARGATE_logo.png (main logo)
@@ -61,6 +62,14 @@ from wargate_orchestration import (
 )
 from wargate import WARGATEConfig
 from langchain_openai import ChatOpenAI
+
+# Nano Banana API for phase summary image generation
+from nano_banana import (
+    NanoBananaClient,
+    NanoBananaConfig,
+    generate_phase_summary_image_async,
+    save_phase_summary_image,
+)
 
 
 # =============================================================================
@@ -3399,6 +3408,8 @@ def init_session_state():
         # Situation Frame & Step Deltas for user orientation
         "situation_frame": None,    # Dict with scenario_summary, key_stakes, adversary_intent
         "step_deltas": [],          # List of step delta dicts
+        # Nano Banana phase summary images
+        "phase_summary_images": {},  # Dict mapping phase_name -> image bytes (PNG)
     }
 
     for key, default in defaults.items():
@@ -3845,10 +3856,31 @@ def render_situation_panel():
 
     # Step Deltas
     step_deltas = st.session_state.get("step_deltas", [])
+    phase_summary_images = st.session_state.get("phase_summary_images", {})
+
     if step_deltas:
         st.markdown("---")
         st.markdown("### Step Deltas")
         st.caption("How our understanding evolved")
+
+        # Mapping from display names to phase enum names for image lookup
+        display_to_phase_map = {
+            "Step 1: Planning Initiation": "PLANNING_INITIATION",
+            "Step 2: Mission Analysis": "MISSION_ANALYSIS",
+            "Step 3: COA Development": "COA_DEVELOPMENT",
+            "Step 4: COA Analysis": "COA_ANALYSIS",
+            "Step 5: COA Comparison": "COA_COMPARISON",
+            "Step 6: COA Approval": "COA_APPROVAL",
+            "Step 7: Plan Development": "PLAN_DEVELOPMENT",
+            # Also handle cleaner names
+            "Planning Initiation": "PLANNING_INITIATION",
+            "Mission Analysis": "MISSION_ANALYSIS",
+            "Coa Development": "COA_DEVELOPMENT",
+            "Coa Analysis": "COA_ANALYSIS",
+            "Coa Comparison": "COA_COMPARISON",
+            "Coa Approval": "COA_APPROVAL",
+            "Plan Development": "PLAN_DEVELOPMENT",
+        }
 
         # Show deltas in reverse order (most recent first)
         for delta in reversed(step_deltas):
@@ -3857,6 +3889,14 @@ def render_situation_panel():
             display_name = step_name.replace("_", " ").title()
 
             with st.expander(f"**{display_name}**", expanded=(delta == step_deltas[-1])):
+                # Check for summary image
+                phase_key = display_to_phase_map.get(step_name) or display_to_phase_map.get(display_name)
+                image_bytes = phase_summary_images.get(phase_key) if phase_key else None
+
+                if image_bytes:
+                    st.image(image_bytes, caption=f"{display_name} - Summary Infographic", use_container_width=True)
+                    st.markdown("---")
+
                 st.markdown("**What We Learned:**")
                 st.markdown(f"> {delta.get('what_learned', 'N/A')}")
 
@@ -4939,6 +4979,24 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                     # Save to file alongside other artifacts
                     save_step_delta_to_file(op_name, phase.name, step_delta)
 
+                    # Generate Nano Banana summary image for this phase
+                    try:
+                        image_bytes = generate_phase_summary_image_async(
+                            phase_name=phase_info['name'],
+                            phase_delta=step_delta,
+                            phase_result=phase_result,
+                            operation_name=op_name,
+                        )
+                        if image_bytes:
+                            # Store in session state
+                            st.session_state.phase_summary_images[phase.name] = image_bytes
+                            # Save to file
+                            save_phase_summary_image(image_bytes, op_name, phase.name)
+                            print(f"[NanoBanana] Generated summary image for {phase_info['name']}")
+                    except Exception as img_error:
+                        # Image generation failure should not block planning
+                        print(f"[NanoBanana] Image generation failed for {phase_info['name']}: {img_error}")
+
                     # Refresh situation panel to show new delta
                     refresh_situation_panel()
                 except Exception as delta_error:
@@ -5043,8 +5101,9 @@ def main():
                 "temperature": inputs["temperature"],
                 "persona_seed": inputs["persona_seed"]
             }
-            # Reset step deltas for new run
+            # Reset step deltas and summary images for new run
             st.session_state.step_deltas = []
+            st.session_state.phase_summary_images = {}
             should_start_planning = True
 
     # ==========================================================================
