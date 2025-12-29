@@ -60,7 +60,7 @@ from wargate_orchestration import (
     PHASE_CONFIGS,
     create_orchestrator,
 )
-from wargate import WARGATEConfig
+from wargate import WARGATEConfig, StaffRole, create_staff_agent
 from langchain_openai import ChatOpenAI
 
 # Nano Banana API for phase summary image generation
@@ -3410,6 +3410,8 @@ def init_session_state():
         "step_deltas": [],          # List of step delta dicts
         # Nano Banana phase summary images
         "phase_summary_images": {},  # Dict mapping phase_name -> image bytes (PNG)
+        # Agent Chat feature
+        "agent_chat_history": [],    # List of chat messages [{role, agents, message, responses}]
     }
 
     for key, default in defaults.items():
@@ -3917,6 +3919,247 @@ def refresh_situation_panel():
     if container is not None:
         with container.container():
             render_situation_panel()
+
+
+# =============================================================================
+# AGENT CHAT FEATURE
+# =============================================================================
+
+# Agent display names and descriptions for the chat interface
+AGENT_OPTIONS = {
+    StaffRole.COMMANDER: ("Commander", "Decision authority, strategic direction"),
+    StaffRole.J1: ("J1 - Personnel", "Manpower, personnel readiness, casualty estimates"),
+    StaffRole.J2: ("J2 - Intelligence", "Threat assessment, enemy COAs, ISR"),
+    StaffRole.J3: ("J3 - Operations", "Execution, synchronization, battle rhythm"),
+    StaffRole.J4: ("J4 - Logistics", "Sustainment, supply, transportation"),
+    StaffRole.J5: ("J5 - Plans", "Strategy, campaign design, branches & sequels"),
+    StaffRole.J6: ("J6 - Communications", "C4I, networks, spectrum management"),
+    StaffRole.J7: ("J7 - Training", "Readiness, exercises, lessons learned"),
+    StaffRole.J8: ("J8 - Resources", "Budget, force structure, acquisitions"),
+    StaffRole.CYBER_EW: ("Cyber/EW", "Cyber operations, electronic warfare, information ops"),
+    StaffRole.FIRES: ("Fires", "Targeting, fire support, effects coordination"),
+    StaffRole.ENGINEER: ("Engineer", "Mobility, counter-mobility, survivability"),
+    StaffRole.PROTECTION: ("Protection", "Force protection, AMD, CBRN defense"),
+    StaffRole.SJA: ("SJA - Legal", "Law of armed conflict, ROE, ethics"),
+    StaffRole.PAO: ("PAO - Public Affairs", "Strategic communications, media, narratives"),
+}
+
+
+def get_or_create_chat_agent(role: StaffRole):
+    """Get an agent for chat, using cached orchestrator agents if available."""
+    # Try to use existing orchestrator agents first
+    orchestrator = st.session_state.get("orchestrator")
+    if orchestrator and role in orchestrator.agents:
+        return orchestrator.agents[role]
+
+    # Create a new agent for chat
+    config = WARGATEConfig(
+        model_name=st.session_state.get("model_name", "gpt-4o"),
+        temperature=st.session_state.get("temperature", 0.7),
+        persona_seed=st.session_state.get("persona_seed"),
+    )
+    return create_staff_agent(role, config)
+
+
+def invoke_agent_for_chat(role: StaffRole, user_message: str, context: str = "") -> dict:
+    """
+    Invoke an agent with a user message and return the response.
+
+    Args:
+        role: The staff role to invoke
+        user_message: The user's question or information
+        context: Optional context (scenario, prior planning results)
+
+    Returns:
+        Dict with agent info and response
+    """
+    agent = get_or_create_chat_agent(role)
+
+    # Build the prompt with context
+    prompt_parts = []
+
+    # Add scenario context if available
+    scenario = st.session_state.get("scenario_text", "")
+    if scenario:
+        prompt_parts.append(f"CURRENT SCENARIO:\n{scenario[:2000]}")
+
+    # Add situation frame if available
+    situation_frame = st.session_state.get("situation_frame")
+    if situation_frame:
+        prompt_parts.append(f"SITUATION SUMMARY:\n{situation_frame.get('scenario_summary', '')}")
+
+    # Add any additional context
+    if context:
+        prompt_parts.append(f"ADDITIONAL CONTEXT:\n{context}")
+
+    # Add the user's message
+    prompt_parts.append(f"USER MESSAGE:\n{user_message}")
+    prompt_parts.append("\nRespond directly and professionally to the user's message based on your role and expertise.")
+
+    full_prompt = "\n\n".join(prompt_parts)
+
+    try:
+        response = agent.invoke(full_prompt)
+        return {
+            "role": role,
+            "role_name": AGENT_OPTIONS[role][0],
+            "persona": agent.persona.short_designation if agent.persona else role.value,
+            "branch": agent.persona.branch.value if agent.persona else "Joint",
+            "response": response,
+            "success": True,
+        }
+    except Exception as e:
+        return {
+            "role": role,
+            "role_name": AGENT_OPTIONS[role][0],
+            "persona": role.value,
+            "branch": "Joint",
+            "response": f"Error: {str(e)}",
+            "success": False,
+        }
+
+
+def render_agent_chat():
+    """Render the Agent Chat interface for direct communication with staff agents."""
+    st.markdown("## Agent Chat")
+    st.markdown("""
+    Communicate directly with the AI staff agents. Select one or more agents,
+    type your question or information, and receive responses from each selected agent.
+    """)
+
+    # Check if planning has been run (agents have context)
+    has_context = bool(st.session_state.get("scenario_text")) or bool(st.session_state.get("phase_outputs"))
+
+    if not has_context:
+        st.info("💡 **Tip:** Run a planning session first to give agents scenario context. You can still chat without context, but responses will be more general.")
+
+    st.markdown("---")
+
+    # Agent selection
+    st.markdown("### Select Agents")
+
+    # Create columns for better layout
+    col1, col2 = st.columns([2, 1])
+
+    with col1:
+        # Multi-select for agents
+        agent_options = {f"{name} - {desc}": role for role, (name, desc) in AGENT_OPTIONS.items()}
+        selected_labels = st.multiselect(
+            "Choose agents to communicate with:",
+            options=list(agent_options.keys()),
+            default=[],
+            help="Select one or more agents. Each will respond independently to your message.",
+            key="agent_chat_selection",
+        )
+        selected_roles = [agent_options[label] for label in selected_labels]
+
+    with col2:
+        # Quick select buttons
+        st.markdown("**Quick Select:**")
+        if st.button("All Agents", key="select_all_agents"):
+            st.session_state.agent_chat_selection = list(agent_options.keys())
+            st.rerun()
+        if st.button("Core Staff (J2-J5)", key="select_core_staff"):
+            core = [StaffRole.J2, StaffRole.J3, StaffRole.J4, StaffRole.J5]
+            st.session_state.agent_chat_selection = [
+                f"{AGENT_OPTIONS[r][0]} - {AGENT_OPTIONS[r][1]}" for r in core
+            ]
+            st.rerun()
+        if st.button("Clear Selection", key="clear_agent_selection"):
+            st.session_state.agent_chat_selection = []
+            st.rerun()
+
+    st.markdown("---")
+
+    # Message input
+    st.markdown("### Your Message")
+    user_message = st.text_area(
+        "Enter your question or information:",
+        height=120,
+        placeholder="Example: What are the key logistics considerations for a 72-hour operation?\n\nOr provide information: The enemy has reinforced their northern positions with an additional armored brigade.",
+        key="agent_chat_message",
+    )
+
+    # Submit button
+    col_submit, col_clear = st.columns([1, 1])
+    with col_submit:
+        submit_disabled = not selected_roles or not user_message.strip()
+        submit_clicked = st.button(
+            "📤 Send to Agents",
+            type="primary",
+            disabled=submit_disabled,
+            key="agent_chat_submit",
+        )
+    with col_clear:
+        if st.button("🗑️ Clear Chat History", key="clear_chat_history"):
+            st.session_state.agent_chat_history = []
+            st.rerun()
+
+    # Process submission
+    if submit_clicked and selected_roles and user_message.strip():
+        with st.spinner(f"Getting responses from {len(selected_roles)} agent(s)..."):
+            responses = []
+            for role in selected_roles:
+                response = invoke_agent_for_chat(role, user_message.strip())
+                responses.append(response)
+
+            # Store in chat history
+            chat_entry = {
+                "user_message": user_message.strip(),
+                "agents": [AGENT_OPTIONS[r][0] for r in selected_roles],
+                "responses": responses,
+                "timestamp": datetime.now().strftime("%H:%M:%S"),
+            }
+            st.session_state.agent_chat_history.append(chat_entry)
+
+            # Clear the message input
+            st.session_state.agent_chat_message = ""
+            st.rerun()
+
+    st.markdown("---")
+
+    # Display chat history
+    st.markdown("### Conversation History")
+
+    chat_history = st.session_state.get("agent_chat_history", [])
+
+    if not chat_history:
+        st.info("No conversation yet. Select agents and send a message to begin.")
+    else:
+        # Show most recent first
+        for i, entry in enumerate(reversed(chat_history)):
+            entry_num = len(chat_history) - i
+
+            with st.expander(
+                f"**[{entry['timestamp']}]** You → {', '.join(entry['agents'])}",
+                expanded=(i == 0),  # Expand most recent
+            ):
+                # User message
+                st.markdown("**Your Message:**")
+                st.markdown(f"> {entry['user_message']}")
+
+                st.markdown("---")
+
+                # Agent responses
+                for resp in entry["responses"]:
+                    # Get branch color
+                    branch = resp.get("branch", "Joint")
+                    branch_color = BRANCH_COLORS.get(branch, "#6A0DAD")
+
+                    st.markdown(
+                        f"""<div style="border-left: 4px solid {branch_color}; padding-left: 12px; margin-bottom: 16px;">
+                        <strong style="color: {branch_color};">{resp['persona']}</strong>
+                        <span style="color: #888;"> ({resp['role_name']} • {branch})</span>
+                        </div>""",
+                        unsafe_allow_html=True,
+                    )
+
+                    if resp["success"]:
+                        st.markdown(resp["response"])
+                    else:
+                        st.error(resp["response"])
+
+                    st.markdown("")  # Spacing
 
 
 def render_welcome():
@@ -5133,9 +5376,13 @@ def main():
     with main_col:
         # SINGLE TAB CONTAINER - Created ONCE, never recreated
         # Always use the same tab names so the container is never destroyed/recreated
-        planning_tab, saved_files_tab, instructions_tab = st.tabs([
-            "Planning", "Saved Files", "Pipeline Instructions"
+        planning_tab, agent_chat_tab, saved_files_tab, instructions_tab = st.tabs([
+            "Planning", "Agent Chat", "Saved Files", "Pipeline Instructions"
         ])
+
+        # Agent Chat tab - direct communication with agents
+        with agent_chat_tab:
+            render_agent_chat()
 
         # Saved Files tab - use st.empty() for incremental updates during planning
         with saved_files_tab:
