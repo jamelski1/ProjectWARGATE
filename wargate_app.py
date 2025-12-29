@@ -3412,6 +3412,8 @@ def init_session_state():
         "phase_summary_images": {},  # Dict mapping phase_name -> image bytes (PNG)
         # Agent Chat feature
         "agent_chat_history": [],    # List of chat messages [{role, agents, message, responses}]
+        # Track current phase being processed (for resume support)
+        "current_processing_phase": None,  # Phase name currently being processed
     }
 
     for key, default in defaults.items():
@@ -5134,21 +5136,33 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
             if phase.name in st.session_state.phase_outputs:
                 continue
 
+            # Check if we're resuming the same phase (interrupted by rerun)
+            is_resuming_same_phase = (
+                st.session_state.get("current_processing_phase") == phase.name
+            )
+
             # Update mission terminal status bar
             progress = idx / total_phases
             render_mission_status(
                 terminal_container,
                 progress,
-                f"Executing {phase_info['name']}...",
+                f"Executing {phase_info['name']}..." + (" (resuming)" if is_resuming_same_phase else ""),
                 phase_name=phase.name,
                 substep='a',
             )
 
             with status_container:
-                st.info(f"Starting Phase {idx + 1}: {phase_info['name']}")
+                if is_resuming_same_phase:
+                    st.info(f"Resuming Phase {idx + 1}: {phase_info['name']}")
+                else:
+                    st.info(f"Starting Phase {idx + 1}: {phase_info['name']}")
 
-            # Clear dialogue for new phase
-            st.session_state.live_turns = []
+            # Only clear dialogue if starting a NEW phase, not resuming
+            if not is_resuming_same_phase:
+                st.session_state.live_turns = []
+
+            # Track which phase we're processing (for resume support)
+            st.session_state.current_processing_phase = phase.name
 
             # Run the phase with all enhanced features
             # Pass terminal container for live progress updates during phase execution
@@ -5169,6 +5183,9 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                 legacy_output = convert_phase_result_to_legacy_format(phase_result)
                 st.session_state.phase_outputs[phase.name] = legacy_output
                 st.session_state.phase_results[phase.name] = phase_result
+
+                # Phase complete - clear the processing tracker
+                st.session_state.current_processing_phase = None
 
                 # Update terminal to show phase completion
                 render_mission_status(
@@ -5263,6 +5280,7 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
                 st.error(f"Phase {phase_info['name']} failed. Stopping.")
                 # Note: Previously completed phases' PDFs are still in session state
                 st.session_state.is_running = False
+                st.session_state.current_processing_phase = None
                 return False
 
         # Final completion status
@@ -5286,6 +5304,7 @@ def run_full_planning_orchestrated(scenario: str) -> bool:
             st.error(f"Error: {str(e)}")
         st.exception(e)
         st.session_state.is_running = False
+        st.session_state.current_processing_phase = None
         return False
 
 
@@ -5358,9 +5377,10 @@ def main():
                 "temperature": inputs["temperature"],
                 "persona_seed": inputs["persona_seed"]
             }
-            # Reset step deltas and summary images for new run
+            # Reset step deltas, summary images, and processing tracker for new run
             st.session_state.step_deltas = []
             st.session_state.phase_summary_images = {}
+            st.session_state.current_processing_phase = None
             should_start_planning = True
 
     # ==========================================================================
