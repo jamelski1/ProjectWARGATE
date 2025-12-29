@@ -99,7 +99,7 @@ def build_phase_delta_content(
 
     Args:
         phase_name: Name of the JPP phase
-        phase_delta: Step delta dict with what_learned, what_changed, tensions
+        phase_delta: Step delta dict with what_learned, what_changed, tensions, coas
         guidance: Commander's guidance dict (optional)
 
     Returns:
@@ -111,6 +111,15 @@ def build_phase_delta_content(
         "evolution": phase_delta.get("what_changed", ""),
         "risks_tensions": phase_delta.get("tensions", ""),
     }
+
+    # Extract COA information if present (for COA phases)
+    coas = phase_delta.get("coas", "")
+    if coas:
+        content["coas"] = coas
+
+    # Check if this is a COA-related phase
+    is_coa_phase = any(keyword in phase_name.upper() for keyword in ["COA", "COURSE"])
+    content["is_coa_phase"] = is_coa_phase
 
     if guidance:
         guidance_text = guidance.get("guidance_text", "")
@@ -142,12 +151,22 @@ def build_infographic_prompt(
     """
     # Build bullet points from content
     bullets = []
+    is_coa_phase = content.get("is_coa_phase", False)
+
+    # For COA phases, prioritize COA information
+    if is_coa_phase and content.get("coas"):
+        coas_text = content["coas"]
+        # Truncate but keep more for COA info (up to 300 chars)
+        bullets.append(f"COURSES OF ACTION: {coas_text[:300]}")
 
     if content.get("key_insights"):
-        bullets.append(f"KEY INSIGHT: {content['key_insights'][:100]}")
+        # Allow more space for COA phases
+        max_len = 150 if is_coa_phase else 100
+        bullets.append(f"KEY INSIGHT: {content['key_insights'][:max_len]}")
 
     if content.get("evolution"):
-        bullets.append(f"EVOLUTION: {content['evolution'][:100]}")
+        max_len = 150 if is_coa_phase else 100
+        bullets.append(f"EVOLUTION: {content['evolution'][:max_len]}")
 
     if content.get("risks_tensions"):
         bullets.append(f"RISKS: {content['risks_tensions'][:100]}")
@@ -161,6 +180,16 @@ def build_infographic_prompt(
 
     bullets_text = "\n".join(f"- {b}" for b in bullets)
 
+    # Add COA-specific instructions for COA phases
+    coa_instructions = ""
+    if is_coa_phase:
+        coa_instructions = """
+IMPORTANT FOR THIS COA PHASE:
+- Give prominent visual treatment to the COURSES OF ACTION section
+- Each COA should be clearly distinguishable (use numbered boxes or columns)
+- Highlight any recommended or approved COA with a distinct visual indicator
+"""
+
     prompt = f"""Create a clean, professional military briefing infographic.
 
 STYLE REQUIREMENTS:
@@ -171,7 +200,7 @@ STYLE REQUIREMENTS:
 - 16:9 aspect ratio (widescreen slide format)
 - Bold, clear typography
 - Organized in 3-4 distinct sections/boxes
-
+{coa_instructions}
 CONTENT TO DISPLAY:
 
 HEADER:

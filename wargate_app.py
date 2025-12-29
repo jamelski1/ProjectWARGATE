@@ -317,18 +317,37 @@ def generate_step_delta(
     brief_turns = phase_result.get("brief", {}).get("turns", [])
     guidance = phase_result.get("guidance", {})
 
+    # Check if this is a COA-related phase (need more detail)
+    is_coa_phase = any(keyword in phase_name.upper() for keyword in ["COA", "COURSE"])
+
     # Build a condensed summary of what happened in this phase
     phase_content = []
 
     if meeting_turns:
-        # Get last few turns as representative
-        recent_turns = meeting_turns[-5:] if len(meeting_turns) > 5 else meeting_turns
-        turn_summary = "\n".join([f"- {t.get('role', 'Unknown')}: {t.get('content', '')[:200]}" for t in recent_turns])
+        # Get more turns for COA phases, fewer for others
+        num_turns = 10 if is_coa_phase else 5
+        recent_turns = meeting_turns[-num_turns:] if len(meeting_turns) > num_turns else meeting_turns
+        turn_summary = "\n".join([
+            f"- {t.get('role', 'Unknown')}: {t.get('text', t.get('content', ''))[:300]}"
+            for t in recent_turns
+        ])
         phase_content.append(f"Staff Meeting (excerpt):\n{turn_summary}")
 
     if slides:
-        slide_titles = [s.get("title", "") for s in slides[:5]]
-        phase_content.append(f"Slides covered: {', '.join(slide_titles)}")
+        # For COA phases, include full slide content with bullets
+        if is_coa_phase:
+            slide_content = []
+            for s in slides[:8]:  # More slides for COA phases
+                title = s.get("title", "")
+                bullets = s.get("bullets", [])
+                if title:
+                    slide_content.append(f"**{title}**")
+                    for bullet in bullets[:5]:  # Top 5 bullets per slide
+                        slide_content.append(f"  - {bullet[:150]}")
+            phase_content.append(f"Slide Content:\n" + "\n".join(slide_content))
+        else:
+            slide_titles = [s.get("title", "") for s in slides[:5]]
+            phase_content.append(f"Slides covered: {', '.join(slide_titles)}")
 
     if guidance:
         guidance_text = guidance.get("guidance_text", "") or guidance.get("content", "")
@@ -343,6 +362,16 @@ def generate_step_delta(
             for d in prior_deltas[-3:]  # Last 3 deltas
         ])
 
+    # Build COA-specific instructions if applicable
+    coa_instructions = ""
+    if is_coa_phase:
+        coa_instructions = """
+IMPORTANT: This is a COA (Course of Action) phase. You MUST include:
+- Names of ALL COAs discussed (e.g., "COA 1: Thunder Strike, COA 2: Iron Shield, COA 3: Swift Hammer")
+- Key distinguishing features of each COA
+- Which COA was recommended or approved (if applicable)
+"""
+
     prompt = f"""You are summarizing what was learned in a military planning step.
 
 SITUATION CONTEXT:
@@ -354,18 +383,20 @@ PRIOR STEPS SUMMARY:
 CURRENT STEP: {phase_name}
 PHASE CONTENT:
 {chr(10).join(phase_content) if phase_content else "No detailed content available."}
-
-Generate a CONCISE step delta. Respond in this EXACT JSON format (no markdown):
+{coa_instructions}
+Generate a step delta summary. Respond in this EXACT JSON format (no markdown):
 {{
-    "what_learned": "<1-2 sentences: What key insights or information emerged from this step?>",
-    "what_changed": "<1-2 sentences: How did our understanding evolve from the previous step? What's different now?>",
-    "tensions": "<1-2 sentences: What tradeoffs, risks, or unresolved tensions were identified?>"
+    "what_learned": "<2-3 sentences: What key insights emerged? For COA phases, list ALL COA names and their core concepts.>",
+    "what_changed": "<2-3 sentences: How did our understanding evolve? What decisions were made?>",
+    "tensions": "<2-3 sentences: What tradeoffs, risks, or unresolved tensions were identified?>"
 }}
 
-Be specific and actionable. Focus on the DELTA - what's new, not a summary of everything."""
+Be specific and actionable. Include concrete details like COA names, key decisions, and specific risks."""
 
     try:
-        llm = ChatOpenAI(model=model_name, temperature=0.3, max_tokens=300)
+        # More tokens for COA phases to capture all details
+        max_tokens = 500 if is_coa_phase else 350
+        llm = ChatOpenAI(model=model_name, temperature=0.3, max_tokens=max_tokens)
         response = llm.invoke(prompt)
         content = response.content.strip()
 
