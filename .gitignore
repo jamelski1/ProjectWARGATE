@@ -44,3 +44,6 @@ Thumbs.db
 # Local config (API keys, etc.)
 .env.local
 *.local.py
+
+# Generated vector store databases
+cve_db/

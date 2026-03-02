@@ -7,7 +7,10 @@ embeds it into a ChromaDB vector store, and provides a query interface
 for the cyberintel retriever tool.
 
 Usage:
-    # Ingest CVEs (run once or periodically to refresh):
+    # Ingest from bundled seed data (works offline):
+    python cve_vectorstore.py --ingest --from-file data/seed_cves.json
+
+    # Ingest from NVD API (requires network + OPENAI_API_KEY):
     python cve_vectorstore.py --ingest --days 120
 
     # Query from Python:
@@ -33,6 +36,7 @@ logger = logging.getLogger(__name__)
 # Paths
 # ---------------------------------------------------------------------------
 CVE_DB_DIR = Path(__file__).parent / "cve_db"
+SEED_CVE_FILE = Path(__file__).parent / "data" / "seed_cves.json"
 
 # ---------------------------------------------------------------------------
 # NVD API helpers
@@ -215,32 +219,66 @@ def _format_cve_document(item: dict) -> tuple[str, dict]:
 # ChromaDB vector store
 # ---------------------------------------------------------------------------
 
+class _ChromaDefaultEmbeddings:
+    """Wrapper around Chroma's built-in default embedding function
+    that satisfies LangChain's Embeddings interface.
+
+    This uses the ONNX all-MiniLM-L6-v2 model bundled with chromadb,
+    so it works fully offline — no API keys or model downloads needed.
+    """
+
+    def __init__(self):
+        from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
+        self._ef = DefaultEmbeddingFunction()
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return self._ef(texts)
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._ef([text])[0]
+
+
 def _get_embedding_function():
-    """Return an embedding function. Uses OpenAI by default."""
-    from langchain_openai import OpenAIEmbeddings
-    return OpenAIEmbeddings(model="text-embedding-3-small")
+    """Return an embedding function that works offline."""
+    return _ChromaDefaultEmbeddings()
+
+
+def load_cves_from_file(file_path: str | Path) -> list[dict]:
+    """Load CVE items from a local JSON file (NVD-format or seed format)."""
+    path = Path(file_path)
+    if not path.exists():
+        raise FileNotFoundError(f"CVE file not found: {path}")
+    with open(path, "r") as f:
+        data = json.load(f)
+    return data.get("vulnerabilities", [])
 
 
 def ingest_cves(
     days_back: int = 120,
     keyword: str | None = None,
     max_results: int | None = None,
+    from_file: str | Path | None = None,
 ) -> int:
     """
-    Fetch CVEs from NVD and ingest them into the ChromaDB vector store.
+    Fetch CVEs from NVD (or a local file) and ingest into ChromaDB.
 
     Args:
-        days_back: Days of CVE history to pull.
-        keyword: Optional keyword filter.
+        days_back: Days of CVE history to pull (ignored if from_file is set).
+        keyword: Optional keyword filter (ignored if from_file is set).
         max_results: Cap on number of CVEs.
+        from_file: Path to a local JSON file with NVD-format CVE data.
 
     Returns:
         Number of documents ingested.
     """
     from langchain_community.vectorstores import Chroma
 
-    logger.info("Fetching CVEs from NVD (last %d days) ...", days_back)
-    raw_items = fetch_cves(days_back=days_back, keyword=keyword, max_results=max_results)
+    if from_file:
+        logger.info("Loading CVEs from file: %s", from_file)
+        raw_items = load_cves_from_file(from_file)
+    else:
+        logger.info("Fetching CVEs from NVD (last %d days) ...", days_back)
+        raw_items = fetch_cves(days_back=days_back, keyword=keyword, max_results=max_results)
     if not raw_items:
         logger.warning("No CVEs fetched.")
         return 0
@@ -349,6 +387,7 @@ def main():
 
     parser = argparse.ArgumentParser(description="CVE Vector Store for ProjectWARGATE")
     parser.add_argument("--ingest", action="store_true", help="Fetch CVEs from NVD and ingest into ChromaDB")
+    parser.add_argument("--from-file", type=str, default=None, help="Load CVEs from a local JSON file instead of NVD API")
     parser.add_argument("--days", type=int, default=120, help="Days of CVE history to pull (default: 120)")
     parser.add_argument("--keyword", type=str, default=None, help="Optional keyword filter for NVD search")
     parser.add_argument("--max", type=int, default=None, help="Maximum number of CVEs to fetch")
@@ -362,6 +401,7 @@ def main():
             days_back=args.days,
             keyword=args.keyword,
             max_results=args.max,
+            from_file=args.from_file,
         )
         print(f"\nIngested {count} CVEs into {CVE_DB_DIR}")
 
