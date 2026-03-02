@@ -403,9 +403,14 @@ def cyberintel_query(query: str) -> str:
     Retrieves cyber threat intelligence, AI/cyber incidents, and information
     environment assessments.
 
-    TODO: Replace with real RAG retriever connected to cyber intel knowledge base.
+    Uses the CVE vector store if it has been built (via cve_vectorstore.py --ingest).
+    Falls back to a placeholder if the database doesn't exist yet.
     """
-    return f"[CYBERINTEL_RETRIEVAL] Query: '{query}'\n\nPlaceholder response - Connect to cyber intel vector store for:\n- Known threat actor TTPs\n- Recent cyber incidents\n- Infrastructure vulnerabilities\n- AI-enabled threat capabilities"
+    try:
+        from cve_vectorstore import cve_query
+        return cve_query(query)
+    except Exception:
+        return f"[CYBERINTEL_RETRIEVAL] Query: '{query}'\n\nPlaceholder response - Connect to cyber intel vector store for:\n- Known threat actor TTPs\n- Recent cyber incidents\n- Infrastructure vulnerabilities\n- AI-enabled threat capabilities\n\nRun `python cve_vectorstore.py --ingest` to populate the CVE database."
 
 
 def terrain_query(query: str) -> str:
