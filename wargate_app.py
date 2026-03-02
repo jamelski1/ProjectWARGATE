@@ -486,6 +486,48 @@ def save_phase_text_log(
     return file_path
 
 
+def save_original_prompt(
+    op_name: str,
+    scenario_text: str,
+) -> Path:
+    """
+    Save the original user prompt/scenario text to the operation's log folder.
+
+    This is saved once at the start of planning so we always know what
+    question was asked for a given operation.
+
+    Args:
+        op_name: Operation name (will be sanitized)
+        scenario_text: The original scenario/prompt text from the user
+
+    Returns:
+        The full file path where the prompt was saved
+    """
+    safe_op = sanitize_name(op_name)
+    target_dir = LOG_ROOT / safe_op
+    target_dir.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.utcnow().strftime("%Y-%m-%d %H:%MZ")
+
+    content = f"""ORIGINAL PROMPT / SCENARIO
+{'=' * 70}
+Operation: {op_name}
+Saved: {timestamp}
+Classification: UNCLASSIFIED // FOR EXERCISE PURPOSES ONLY
+{'=' * 70}
+
+{scenario_text.strip()}
+
+{'=' * 70}
+END OF ORIGINAL PROMPT
+{'=' * 70}
+"""
+
+    file_path = target_dir / "Original_Prompt.txt"
+    file_path.write_text(content, encoding="utf-8")
+    return file_path
+
+
 def build_dialogue_minutes_text(
     op_name: str,
     phase_label: str,
@@ -5082,6 +5124,14 @@ def run_single_phase_interactive(phase: JPPPhase, scenario: str) -> bool:
             # Get operation name from session state or default
             op_name = st.session_state.get("operation_name", "") or "Operation WARGATE"
 
+            # Save the original prompt if not already saved for this operation
+            try:
+                prompt_path = LOG_ROOT / sanitize_name(op_name) / "Original_Prompt.txt"
+                if not prompt_path.exists():
+                    save_original_prompt(op_name, scenario)
+            except Exception as prompt_save_error:
+                print(f"Failed to save original prompt: {prompt_save_error}")
+
             # IMMEDIATELY save text logs - error resilient
             # These are the primary output for NotebookLM/external tools
             try:
@@ -5504,6 +5554,13 @@ def main():
                             )
                             # Refresh the situation panel to show the new frame
                             refresh_situation_panel()
+
+                    # Save the original prompt/scenario so we know what was asked
+                    try:
+                        op_name = st.session_state.get("operation_name", "") or "Operation WARGATE"
+                        save_original_prompt(op_name, planning_inputs["scenario"])
+                    except Exception as prompt_save_error:
+                        print(f"Failed to save original prompt: {prompt_save_error}")
 
                     try:
                         # Planning runs HERE, AFTER tabs are created
