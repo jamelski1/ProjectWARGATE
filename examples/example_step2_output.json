@@ -1,0 +1,151 @@
+{
+  "_comment": "Example Step 2 (Mission Analysis) artifact for Operation NORTHERN SHIELD",
+  "mission_statement": {
+    "who": "JFC NORTH",
+    "what": "defends the territorial integrity of Country Z",
+    "when": "on order, NLT 12 NOV (D-Day)",
+    "where": "along the Eastern Defense Line (EDL), from Gridref NB4421 to Gridref NC8834",
+    "why": "to defeat Country X aggression, restore international boundaries, and re-establish deterrence",
+    "full_statement": "JFC NORTH defends the territorial integrity of Country Z along the Eastern Defense Line (NB4421–NC8834) on order, NLT 12 NOV, to defeat Country X aggression, restore international boundaries, and re-establish deterrence."
+  },
+  "commanders_intent_draft": {
+    "purpose": "Defeat Country X's three-army invasion of Country Z and restore the internationally recognized boundary, while maintaining NATO alliance cohesion and managing escalation below the nuclear threshold.",
+    "method": "Establish a layered defense-in-depth along the EDL, leveraging terrain and prepared positions to attrite enemy combined arms formations. Achieve air superiority within 72 hours through combined allied air operations. Identify enemy culmination point through continuous ISR, then transition to counterattack to restore territorial integrity. Simultaneously, conduct cyber and information operations to degrade enemy C2 and domestic support.",
+    "end_state": "Country X forces are expelled from Country Z territory. The EDL is restored as the recognized boundary. Country X acknowledges cessation of hostilities. NATO alliance cohesion is maintained with no fracturing of consensus. Deterrence is re-established through demonstrated capability and resolve.",
+    "key_tasks": [
+      "Achieve air superiority over the AO within 72 hours",
+      "Defend key terrain at the River Lena crossing (NB5528)",
+      "Attrite enemy 3rd Combined Arms Army below 60% combat effectiveness",
+      "Maintain LOC to Country Z capital via Highway 3 / Rail Line 7",
+      "Preserve alliance unity through transparent burden-sharing"
+    ]
+  },
+  "operational_limitations": {
+    "restraints": [
+      "Must maintain freedom of navigation in international waters adjacent to Country Z",
+      "Must preserve LOC to Country Z capital at all times",
+      "Cannot employ cluster munitions per Oslo Convention obligations",
+      "Must coordinate all cross-border fires with NAC political committee"
+    ],
+    "constraints": [
+      "No strikes on Country X territory without NAC approval (currently denied)",
+      "Minimize civilian casualties — proportionality review required for all targets in populated areas",
+      "Cannot interfere with ICRC humanitarian access corridors",
+      "Cyber operations against Country X civilian infrastructure require SACEUR approval"
+    ]
+  },
+  "assumptions": [
+    {"id": "A-01", "text": "NATO allies will provide committed air and naval assets within 48 hours of OPLAN activation", "status": "UNVALIDATED", "basis": "NATO Response Force readiness timelines and force generation pledges", "impact_if_wrong": "JFC must plan for 72+ hour window without full air superiority; requires additional organic AMD and ground-based fires"},
+    {"id": "A-02", "text": "Country Z's transportation infrastructure (road/rail) remains functional for force reception", "status": "VALID", "basis": "Country Z MOD confirmed infrastructure intact as of D-7; no enemy strikes yet observed", "impact_if_wrong": "Reception/staging timeline extends by 72+ hours; may need airfield-centric deployment"},
+    {"id": "A-03", "text": "Country X will not employ nuclear weapons first", "status": "UNVALIDATED", "basis": "Country X's declared no-first-use policy and strategic calculus assessment", "impact_if_wrong": "Requires CBRN defensive posture across all formations; fundamentally changes COA feasibility"},
+    {"id": "A-04", "text": "Country X's two MSR routes are its primary logistics arteries and cannot be easily rerouted", "status": "VALID", "basis": "GEOINT confirms terrain constrains alternatives; only 2 bridging points across River Volna", "impact_if_wrong": "Enemy logistics resilience increases; interdiction targeting becomes less effective"},
+    {"id": "A-05", "text": "Neutral neighbors will deny Country X transit rights or staging access", "status": "UNVALIDATED", "basis": "Diplomatic assurances from neighboring states; no treaty obligations to Country X", "impact_if_wrong": "Enemy can open additional axis of advance from the north; requires reallocation of forces"},
+    {"id": "A-06", "text": "Country X's cyber capabilities are focused on strategic targets, not tactical C2", "status": "UNVALIDATED", "basis": "Observed cyber probes targeted power grid and government networks, not military tactical nets", "impact_if_wrong": "Tactical C2 networks may be more vulnerable than assessed; PACE plans must be tested immediately"}
+  ],
+  "tasks": [
+    {"id": "T-01", "description": "Conduct Intelligence Preparation of the Battlefield focused on the EDL sector", "purpose": "Identify enemy avenues of approach, engagement areas, and ECOA indicators", "owner": "J2", "nlt": "D-5", "coordination": "J3 for EA nomination, J5 for political-military overlay", "success_condition": "Complete IPB with ECOA overlay, named areas of interest, and decision support template", "task_type": "SPECIFIED"},
+    {"id": "T-02", "description": "Develop defensive positions along the EDL with primary, alternate, and supplementary positions", "purpose": "Establish prepared defense to attrite enemy forces", "owner": "J3", "nlt": "D-3", "coordination": "ENGINEER for obstacle plan, J4 for pre-positioned supplies", "success_condition": "All BCTs have assigned sectors with primary/alternate positions surveyed and marked", "task_type": "SPECIFIED"},
+    {"id": "T-03", "description": "Establish forward logistics bases at Gridref NB4830 and NC7025", "purpose": "Sustain defensive operations for minimum 14 days without resupply", "owner": "J4", "nlt": "D-4", "coordination": "ENGINEER for base construction, PROTECTION for base defense plan", "success_condition": "7-day stockpile of Class I, III, V at each base; MSR route clearance complete", "task_type": "IMPLIED"},
+    {"id": "T-04", "description": "Deploy and validate C2 network architecture with PACE redundancy", "purpose": "Ensure uninterrupted command and control under enemy cyber/EW attack", "owner": "J6", "nlt": "D-5", "coordination": "CYBER_EW for defensive cyber ops, J3 for degraded ops SOPs", "success_condition": "PACE validated through full-spectrum communications exercise; failover tested", "task_type": "IMPLIED"},
+    {"id": "T-05", "description": "Achieve and maintain air superiority over the AO", "purpose": "Enable ground force operations and deny enemy close air support", "owner": "J3/JFACC", "nlt": "D+3", "coordination": "Allied air commands, AMD coordinators", "success_condition": "Enemy air sorties reduced to <10% of pre-conflict rate; friendly aircraft operate freely above FL200", "task_type": "ESSENTIAL"},
+    {"id": "T-06", "description": "Conduct defensive cyber operations to protect JFC NORTH C2 networks", "purpose": "Deny enemy ability to degrade friendly command and control", "owner": "CYBER_EW", "nlt": "D-6 and continuous", "coordination": "J6 for network architecture, J2 for threat indicators", "success_condition": "No successful enemy cyber intrusion into primary C2 systems; incidents detected within 15 minutes", "task_type": "SPECIFIED"},
+    {"id": "T-07", "description": "Develop and maintain IO/STRATCOM narrative across allied audiences", "purpose": "Maintain alliance cohesion and counter adversary disinformation", "owner": "PAO", "nlt": "D-5 and continuous", "coordination": "J5 for diplomatic messaging, SJA for legal review of messaging", "success_condition": "Unified narrative adopted by all NATO members; adversary disinformation campaigns identified and countered within 4 hours", "task_type": "IMPLIED"}
+  ],
+  "cog_analysis": [
+    {
+      "entity": "FRIENDLY",
+      "cog": "NATO combined air superiority and precision strike capability",
+      "critical_capabilities": [
+        "Achieve and maintain air superiority over the AO",
+        "Deliver precision guided munitions against high-value targets",
+        "Provide close air support to ground forces",
+        "Conduct ISR operations across the full AO depth"
+      ],
+      "critical_requirements": [
+        "3 operational airfields within 300nm of the FLOT",
+        "AWACS and tanker support for sustained operations",
+        "Integrated air defense suppression (SEAD/DEAD) capability",
+        "Secure satellite communications for targeting data"
+      ],
+      "critical_vulnerabilities": [
+        "Country Z has only 3 hardened airfields; all within enemy SRBM range",
+        "First 48 hours lack full allied air deployment — window of vulnerability",
+        "AWACS orbits are predictable and within range of enemy long-range SAMs",
+        "Dependence on 2 satellite constellations for PGM guidance"
+      ]
+    },
+    {
+      "entity": "ADVERSARY",
+      "cog": "3rd Combined Arms Army as the primary assault force",
+      "critical_capabilities": [
+        "Massed armored/mechanized breakthrough at 3:1 local superiority",
+        "Integrated fires complex (artillery + rocket + EW) suppresses defenders",
+        "Tactical air defense umbrella protects advancing formations",
+        "Cyber/EW capability degrades friendly C2 and air operations"
+      ],
+      "critical_requirements": [
+        "Continuous resupply via MSR-North (Hwy 1) and MSR-South (Hwy 3)",
+        "2 intact bridges across River Volna for heavy equipment transit",
+        "Centralized army-level C2 node for fires coordination",
+        "Air defense umbrella coverage during the advance"
+      ],
+      "critical_vulnerabilities": [
+        "MSR choke points at 2 River Volna crossings — single points of failure",
+        "Centralized C2 node at Gridref NB2215 vulnerable to precision strike or OCO",
+        "Logistics tail extends 200km through constrained terrain — vulnerable to interdiction",
+        "Air defense assets are mobile but require 30-min setup time — targetable during movement"
+      ]
+    }
+  ],
+  "risks": [
+    {"id": "R-01", "description": "Enemy achieves local air parity during first 48 hours before allied air arrives", "probability": "LIKELY", "severity": "HIGH", "narrative": "Country X has invested heavily in IADS and possesses 4th-gen fighter force. Until allied air wing deploys (48-72hrs), enemy can contest airspace and provide CAS to ground forces. This is the single highest-risk period of the operation.", "mitigation": "Priority SEAD/DEAD with available assets in Phase 1; pre-position Patriot/NASAMS batteries; request early deployment of allied F-35 squadron", "owner": "J3/JFACC"},
+    {"id": "R-02", "description": "Enemy cyber attack degrades JFC NORTH C2 during critical defensive phase", "probability": "LIKELY", "severity": "HIGH", "narrative": "Country X has demonstrated capability against Country Z's civilian networks. Military C2 networks are higher priority targets. Loss of C2 during Phase 2 would critically degrade defensive coordination and fires integration.", "mitigation": "Deploy tactical mesh backup; harden primary systems NLT D-5; pre-position liaison officers for face-to-face coordination; validate PACE plan", "owner": "J6/CYBER_EW"},
+    {"id": "R-03", "description": "Forward logistics bases overrun or interdicted before adequate stockpile established", "probability": "POSSIBLE", "severity": "HIGH", "narrative": "If enemy advances faster than assessed (MDCOA), forward logistics bases at NB4830 and NC7025 may be within direct fire range before fully stocked. Loss of either base reduces operational endurance to 3-4 days.", "mitigation": "Establish third backup logistics base at NC5540 (30km deeper); pre-position minimum 3-day emergency stockpile; plan for aerial resupply", "owner": "J4"},
+    {"id": "R-04", "description": "Alliance cohesion fractures under political pressure", "probability": "POSSIBLE", "severity": "EXTREME", "narrative": "Several NATO allies face domestic opposition to military commitment. If early engagements produce significant casualties or civilian collateral damage, political support may erode. Loss of coalition unity is strategically catastrophic.", "mitigation": "Strict proportionality review for all fires; transparent burden-sharing; regular political-military consultations; prepared media response plans", "owner": "J5/PAO"}
+  ],
+  "ccirs": {
+    "PIR": [
+      {"id": "PIR-01", "text": "When will Country X initiate the ground offensive across the EDL?", "indicator": "Forward movement of 3rd CAA main body elements; bridge erection at River Volna crossings; spike in military communications traffic", "collection_asset": "GEOINT (continuous overhead), SIGINT (ground stations), HUMINT (border observers)", "timeliness": "Continuous with 2-hour reporting cycle; flash reporting for movement indicators"},
+      {"id": "PIR-02", "text": "What is the enemy's main axis of advance (north via Hwy 1 or south via Hwy 3)?", "indicator": "Concentration of engineer bridging units; forward positioning of artillery battalions; MSR preparation activities", "collection_asset": "GEOINT satellite + UAV, SIGINT direction finding on division-level nets", "timeliness": "D-3 initial assessment; continuous refinement"},
+      {"id": "PIR-03", "text": "Will Country X employ chemical/biological weapons in the initial attack?", "indicator": "NBC unit deployment forward of main body; chemical protective posture changes; stockpile movements from depots", "collection_asset": "MASINT (chemical sensors at border), SIGINT (NBC unit communications), HUMINT", "timeliness": "D-2 initial assessment; alert-based thereafter"},
+      {"id": "PIR-04", "text": "What is the disposition and readiness of Country X's 2nd Strategic Reserve Army?", "indicator": "Movement from garrison; rail loading; communications activation", "collection_asset": "GEOINT deep reconnaissance, SIGINT strategic intercepts", "timeliness": "D-5 initial assessment; daily updates"}
+    ],
+    "FFIR": [
+      {"id": "FFIR-01", "text": "Has NATO SACEUR activated OPLAN and committed the NATO Response Force?", "indicator": "SHAPE activation message; force generation conference results", "collection_asset": "NATO HQ liaison officer", "timeliness": "D-5 critical; hourly status checks until confirmed"},
+      {"id": "FFIR-02", "text": "When will allied fighter wing (48 aircraft) achieve operational capability at forward airfields?", "indicator": "Arrival reports; maintenance status; weapons upload confirmation", "collection_asset": "Allied Air Component Command reporting", "timeliness": "D-3; updates every 12 hours"},
+      {"id": "FFIR-03", "text": "Is Country Z's rail network operational for military reinforcement traffic?", "indicator": "Rail traffic monitoring; infrastructure damage reports; capacity assessments", "collection_asset": "Country Z MOD liaison; OSINT rail monitoring", "timeliness": "D-4 initial assessment; daily updates"}
+    ],
+    "EEFI": [
+      {"id": "EEFI-01", "text": "JFC NORTH force disposition, readiness levels, and defensive sector assignments", "indicator": "N/A — protect this information", "collection_asset": "OPSEC program; communications encryption; physical security", "timeliness": "Continuous protection"},
+      {"id": "EEFI-02", "text": "NATO OPLAN activation timeline and force commitment decisions", "indicator": "N/A — protect this information", "collection_asset": "COMSEC; need-to-know enforcement; counter-intelligence", "timeliness": "Continuous protection"},
+      {"id": "EEFI-03", "text": "Locations of forward logistics bases and pre-positioned stockpiles", "indicator": "N/A — protect this information", "collection_asset": "Physical security; camouflage/concealment; OPSEC reviews", "timeliness": "Continuous protection"}
+    ]
+  },
+  "isr_outline": [
+    {"pir_id": "PIR-01", "named_area_of_interest": "NAI-01: River Volna crossing sites (NB3320, NB3325)", "collection_asset": "GEOINT satellite (GeoEye-2) + MQ-9 UAV orbit", "method": "Continuous overhead imagery with change detection; 6-hour revisit rate", "timeliness": "Every 6 hours; flash reporting on movement"},
+    {"pir_id": "PIR-02", "named_area_of_interest": "NAI-02: Highway 1 / Highway 3 junction area (NB4218)", "collection_asset": "SIGINT ground station (Detachment Alpha) + GEOINT", "method": "Direction finding on division-level radio nets; pattern-of-life comparison", "timeliness": "Continuous SIGINT; GEOINT every 4 hours"},
+    {"pir_id": "PIR-03", "named_area_of_interest": "NAI-03: Known NBC depot at Gridref NA8812", "collection_asset": "MASINT chemical sensors (border line); SIGINT on NBC unit nets", "method": "Passive chemical detection; intercept of NBC logistics communications", "timeliness": "Alert-based MASINT; daily SIGINT summary"},
+    {"pir_id": "PIR-04", "named_area_of_interest": "NAI-04: 2nd Strategic Reserve Army garrison (deep)", "collection_asset": "National technical means (satellite); SIGINT strategic intercepts", "method": "Deep GEOINT reconnaissance; COMINT on strategic command net", "timeliness": "Daily imagery; continuous SIGINT monitoring"}
+  ],
+  "running_estimates": [
+    {"section": "J2", "assessment": "Enemy 3rd CAA at 85%+ readiness with 72-hr attack timeline assessed HIGH CONFIDENCE. MLCOA: two-axis advance along Hwy 1 and Hwy 3. MDCOA: rapid thrust through Gorski Gap to encircle Country Z capital.", "key_issues": ["ISR coverage gap in northern sector (NAI-02 area)", "Limited HUMINT sources in enemy rear areas", "Unconfirmed reports of 2nd Strategic Reserve mobilization"], "recommendations": ["Deploy additional SIGINT detachment to northern sector NLT D-6", "Request national technical means allocation for deep reconnaissance", "Establish counter-intelligence team for potential enemy HUMINT operations"]},
+    {"section": "J3", "assessment": "Current force posture insufficient for defense-in-depth across full EDL. Two BCTs available now; third BCT arrives D-3. Without 3rd BCT, cannot hold both northern and southern sectors simultaneously.", "key_issues": ["2:1 enemy numerical advantage at expected points of contact", "No operational reserve until 3rd BCT arrives D-3", "AMD coverage insufficient for 3 airfields simultaneously"], "recommendations": ["Request SACEUR operational reserve (1 BCT) to arrive NLT D-2", "Prioritize AMD coverage: Airfield 1 (primary) > Airfield 3 (alternate) > Airfield 2 (contingency)", "Establish delay zone east of EDL to buy time for force buildup"]},
+    {"section": "J4", "assessment": "Forward logistics bases require 96 hours to establish at required stockpile levels. Current sustainment rate supports 7 days of operations; 14-day target requires additional MSR capacity.", "key_issues": ["Class V (ammunition) shortfall — only 60% of required combat load forward", "Single MSR (Hwy 3) for southern sector — vulnerable to interdiction", "Fuel (Class III) distribution network at 70% capacity due to pending infrastructure repair"], "recommendations": ["Prioritize Class V push to forward bases via rail NLT D-5", "Establish alternate MSR via secondary road network (adds 4 hours transit time)", "Request host nation support for fuel distribution augmentation"]},
+    {"section": "J5", "assessment": "Diplomatic track remains active with 48-hour window before irreversible escalation. Coalition ROE harmonization is incomplete — 3 allies have national caveats that restrict fires in populated areas.", "key_issues": ["ROE disparities between allies create coordination gaps in urban-adjacent sectors", "Escalation management framework not yet approved by NAC", "Information operations campaign not synchronized with diplomatic messaging"], "recommendations": ["Convene ROE harmonization conference NLT D-5", "Submit escalation management framework to NAC for approval", "Synchronize IO/STRATCOM with diplomatic track through daily coordination cell"]},
+    {"section": "J6", "assessment": "C2 network partially degraded by enemy cyber probes. Primary SATCOM operational but with intermittent degradation. HF backup validated. Tactical mesh network deployment 60% complete.", "key_issues": ["SATCOM experiencing 15% packet loss — assessed enemy jamming preparation", "Mesh network coverage gap in mountainous northern sector", "Insufficient bandwidth for full-motion video distribution to all BCTs simultaneously"], "recommendations": ["Deploy additional SATCOM terminal with directional antenna NLT D-5", "Position mesh relay node at Hill 847 (northern sector) NLT D-4", "Establish bandwidth allocation priorities: C2 traffic > ISR feeds > admin"]}
+  ],
+  "facts": [
+    "Country X has deployed 3 combined arms armies (180,000+ troops) within 50km of Country Z border",
+    "Country X conducted cyber probes against Country Z power grid and government networks in past 72 hours",
+    "Country Z has 1 mechanized division (12,000 troops) currently in the AO with 2 BCTs combat-ready",
+    "3 airfields in Country Z are within 300nm of the FLOT but within enemy SRBM range",
+    "Country X possesses S-400 and S-500 air defense systems covering the border region",
+    "River Volna is a major terrain obstacle with only 2 permanent bridge crossings",
+    "NATO has pre-approved OPLAN 40302 for Article 5 defense of Country Z"
+  ],
+  "enemy_coas": [
+    "MLCOA: Two-axis advance — Main effort along Highway 1 (northern axis) with supporting effort along Highway 3 (southern axis). Enemy 3rd CAA commits 2 divisions north, 1 division south. Objective: seize Highway 1/3 junction (NB4218) to split Country Z defenses. Timeline: H-hour preceded by 4-hour fires preparation.",
+    "MDCOA: Rapid encirclement via Gorski Gap — Enemy commits all 3 divisions through the narrow Gorski Gap (NB2830) in a single-axis high-speed advance aimed at encircling Country Z capital within 96 hours. Accepts higher risk of logistics overextension for speed of decision.",
+    "ECOA-3: Limited objective seizure — Enemy seizes border territory to depth of 30km, then halts and establishes defensive positions, presenting NATO with fait accompli. Designed to test alliance resolve without triggering full-scale response. Accompanied by diplomatic offer of 'negotiations'."
+  ]
+}
