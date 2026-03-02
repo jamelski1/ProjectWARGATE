@@ -1,0 +1,360 @@
+{
+  "_comment": "Example Step 4 (COA Analysis & Wargaming) artifact for Operation NORTHERN SHIELD",
+  "wargame_method": "BELT (by phase) with targeted AVENUE_IN_DEPTH for the River Lena crossing",
+  "wargame_results": [
+    {
+      "coa_id": "COA-1",
+      "coa_name": "Shield and Strike",
+      "wargame_method": "BELT",
+      "arc_table": [
+        {
+          "phase": "Phase 0 - Shape (D-14 to D-1)",
+          "friendly_action": "JFC NORTH pre-positions 3x BDE combat sets at EDL positions NB4421-NB5528; establishes SHORAD umbrella covering Sector Alpha; conducts ISR saturation along NAI-1 through NAI-6 using MQ-9 and JSTARS",
+          "enemy_reaction": "Country X 3rd Combined Arms Army moves 2x MRD forward to assembly areas at NB6035-NB6540; activates GPS jamming from Gridref NC7033; conducts cyber reconnaissance against friendly C2 networks",
+          "friendly_counteraction": "J6 deploys NAVWAR-resilient PNT backup across all BDEs; CYBER_EW executes defensive hunt operations to detect intrusion; J2 confirms enemy force disposition validates PIR-01",
+          "notes": "Shaping phase achieves 80% BDA coverage; enemy disposition tracking confirmed via SIGINT correlated with IMINT from NAI-2"
+        },
+        {
+          "phase": "Phase I - Deter (D-1 to D-Day)",
+          "friendly_action": "JFC NORTH activates air defense umbrella (3x Patriot batteries + NASAMS); moves reserve BDE to blocking position at River Lena crossing (NB5528); broadcasts strategic messaging via IO to Country X population",
+          "enemy_reaction": "Country X launches 24x MRBM strikes against 4 key airfields and 2 logistics nodes; 1st Tank Army begins forward movement toward River Lena; adversary conducts widespread DDoS against military .mil domains",
+          "friendly_counteraction": "Patriot/NASAMS intercept 19/24 missiles (79%); 3 airfields degraded to 60% capacity, 1 logistics node destroyed - J4 activates alternate LOC via Highway 7; CYBER_EW deflects DDoS, isolates compromised network segment within 90 minutes",
+          "notes": "Critical finding: loss of Logistics Node ECHO requires immediate TPFDD adjustment; triggers DP-01 evaluation"
+        },
+        {
+          "phase": "Phase II - Defend (D-Day to D+5)",
+          "friendly_action": "Main effort: 12th Mech BDE defends River Lena crossing with 2x MBN and 1x EN BN in prepared positions; fires from 2x FA BDE mass on EA LION (NB5830-NB6032); CAS on-call from 4x F-35 sorties/hour",
+          "enemy_reaction": "3rd Combined Arms Army commits 2x MRD in echelon attack across River Lena; employs 40x smoke generators to obscure crossing; 1st Tank Army feints along northern axis at NC8834 with 1x TD to fix reserves",
+          "friendly_counteraction": "Counter-battery radar detects enemy arty positions; MLRS suppresses 3/4 enemy arty BNs within 45 min; 12th Mech BDE withdraws to alternate positions after EA LION attrition reaches 30% threshold; J2 identifies northern feint via SIGINT intercept of 1st TA orders (resolves PIR-02)",
+          "notes": "Enemy crossing attempt at River Lena repelled with 40% enemy casualties; friendly losses: 2x MBN at 75% strength. DP-02 triggered: commit reserve?"
+        },
+        {
+          "phase": "Phase III - Counterattack (D+5 to D+12)",
+          "friendly_action": "Reserve BDE commits through 12th Mech BDE's sector to exploit enemy culmination; 2x SOF teams conduct deep strike on enemy LOC bridges at NB7545 and NB8050; combined air-ground operation captures Obj HAMMER (NB6540)",
+          "enemy_reaction": "3rd Combined Arms Army, now at 55% strength, attempts orderly withdrawal to pre-war positions; commits final reserve (1x independent MRB) to delay; activates scorched-earth destruction of civilian infrastructure along withdrawal route",
+          "friendly_counteraction": "IO publicizes enemy atrocities for strategic effect; 3x UAV surveillance tracks withdrawal routes; fires plan shifts to interdiction of retreat corridors; SOF confirms bridge denial at NB7545 - traps 1x MRD south of river",
+          "notes": "Enemy 3rd CAA rendered combat-ineffective (below 50%). Transition criteria for Phase IV met at D+10."
+        },
+        {
+          "phase": "Phase IV - Stabilize (D+10 to D+30)",
+          "friendly_action": "JFC NORTH establishes security zones along restored EDL; transitions from combat ops to stability ops; begins battle damage assessment and humanitarian corridor establishment",
+          "enemy_reaction": "Remaining Country X forces consolidate north of EDL; irregular forces/stay-behind cells conduct sabotage against LOCs; Country X seeks diplomatic off-ramp via third-party mediator",
+          "friendly_counteraction": "J3 establishes 4x security patrols per sector; CYBER_EW conducts persistent monitoring for stay-behind C2; J5 coordinates with political advisors on ceasefire terms; J9 liaises with HN and NGOs for civilian support",
+          "notes": "Transition to Phase IV requires NAC political approval (external dependency). DP-06 addresses ceasefire acceptance terms."
+        }
+      ],
+      "decision_points": [
+        {
+          "id": "DP-01",
+          "trigger": "Loss of >=2 logistics nodes or primary LOC (Highway 3/Rail Line 7) severed for >12 hours",
+          "decision": "Activate alternate LOC via Highway 7 and request TPFDD emergency re-routing through southern port",
+          "branch": "Branch Plan ALPHA: Shift main supply route to Highway 7; J4 activates pre-positioned stocks at Alternate Supply Point FOXTROT; accept 48-hr delay in reinforcement flow",
+          "sequel": "If Highway 7 also interdicted, request strategic airlift through Country Z international airport",
+          "owner": "CDR JFC NORTH",
+          "associated_ccir": "FFIR-01"
+        },
+        {
+          "id": "DP-02",
+          "trigger": "Enemy commits 2nd echelon (1st Tank Army main body) across River Lena OR 12th Mech BDE combat power drops below 60%",
+          "decision": "Commit reserve BDE to defend or counterattack at River Lena",
+          "branch": "Branch Plan BRAVO: If enemy crosses in strength, reserve conducts counterattack to restore River Lena defense line; if 12th Mech holds, reserve repositions to exploit enemy culmination",
+          "sequel": "Sequel: If counterattack succeeds, transition to Phase III offensive ops within 48 hours",
+          "owner": "CDR JFC NORTH",
+          "associated_ccir": "PIR-02"
+        },
+        {
+          "id": "DP-03",
+          "trigger": "Air superiority not achieved within 96 hours (72-hr target +24 buffer) OR loss of >=3 fighter squadrons",
+          "decision": "Shift to air denial posture and redistribute CAS allocation from 4 to 2 sorties/hr",
+          "branch": "Branch Plan CHARLIE: Increase reliance on surface fires (MLRS/HIMARS); request theater-level air reinforcement; shift air defense to point defense of critical assets only",
+          "sequel": "If air denial sustained >5 days, request strategic bomber support from out-of-theater assets",
+          "owner": "CDR JFC NORTH / JFACC",
+          "associated_ccir": "PIR-03"
+        },
+        {
+          "id": "DP-04",
+          "trigger": "Country X employs CBRN agents or credible intelligence indicates imminent CBRN employment",
+          "decision": "Implement CBRN defense posture MOPP-4 in affected sectors; escalate through NAC for political response options",
+          "branch": "Branch Plan DELTA: Affected units assume MOPP-4 (accept 30% reduction in combat tempo); activate decontamination assets from theater reserve; J5 coordinates NAC emergency session for response authorization",
+          "sequel": "Based on NAC guidance, execute proportional response ranging from diplomatic demarche to expanded targeting of Country X strategic assets",
+          "owner": "CDR JFC NORTH / SACEUR",
+          "associated_ccir": "PIR-04"
+        },
+        {
+          "id": "DP-05",
+          "trigger": "Cyber attack degrades friendly C2 network to <40% operational capacity for >4 hours OR loss of SATCOM connectivity",
+          "decision": "Activate degraded-mode C2 procedures using HF backup nets and courier system",
+          "branch": "Branch Plan ECHO: Shift to mission-type orders with 48-hr execution windows; decentralize fire control to BDE level; J6 activates CYBER_EW counter-offensive to restore network",
+          "sequel": "If C2 restored within 12 hours, resume centralized ops; if not, maintain degraded mode and request theater cyber reinforcement",
+          "owner": "CDR JFC NORTH / J6",
+          "associated_ccir": "FFIR-02"
+        },
+        {
+          "id": "DP-06",
+          "trigger": "Country X signals willingness for ceasefire OR enemy forces withdraw behind pre-war boundary line",
+          "decision": "Accept ceasefire terms and transition to Phase IV stability operations, or continue offensive to achieve additional objectives",
+          "branch": "Branch Plan FOXTROT: If ceasefire accepted, establish contact line and security zone; begin battle handover to follow-on force; initiate redeployment planning",
+          "sequel": "Sequel: Post-ceasefire, transition to Phase V (Enable Civil Authority) with NATO stabilization force",
+          "owner": "CDR JFC NORTH / SACEUR / NAC",
+          "associated_ccir": "EEFI-01"
+        }
+      ],
+      "strengths": [
+        "Exploits prepared defensive terrain at River Lena - forces enemy into costly river crossing under fire",
+        "Maintains a coherent reserve capable of counterattack once enemy culmination is identified",
+        "Cyber/EW integration throughout all phases degrades enemy C2 and enables friendly information advantage",
+        "Clear transition criteria between phases prevent premature commitment of forces",
+        "LOC redundancy (Highway 3 + Highway 7) provides logistics resilience"
+      ],
+      "weaknesses": [
+        "Heavy reliance on air superiority within 72 hours - if delayed, ground forces face significant attrition",
+        "Single reserve BDE creates all-or-nothing commitment decision at DP-02",
+        "Northern axis at NC8834 thinly covered - vulnerable to more than a feint if enemy commits 1st TA main body there",
+        "Counterattack phase assumes enemy culmination at River Lena - if enemy secures bridgehead in strength, Phase III timing slips",
+        "Stability phase depends on NAC political decisions (external dependency outside CDR control)"
+      ],
+      "updated_risk": {
+        "id": "R-COA1-WG",
+        "description": "COA-1 overall risk: Enemy secures River Lena crossing before reserve can counterattack, forcing costly urban fighting in Sector Alpha",
+        "probability": "POSSIBLE",
+        "severity": "HIGH",
+        "narrative": "Wargaming revealed that if enemy achieves simultaneous crossing at 2+ points along River Lena, 12th Mech BDE cannot cover all sectors. 40% enemy casualty estimate assumes single crossing point. Multi-axis crossing reduces attrition to ~25% and may compromise the defense.",
+        "mitigation": "Pre-position engineer obstacles at 3 alternate crossing sites; emplace FASCAM minefields at NB5225 and NB5831; assign 1x attack helicopter squadron for rapid response to secondary crossings",
+        "owner": "J3/J5"
+      },
+      "modifications": [
+        "Add FASCAM obstacle plan for alternate River Lena crossing sites NB5225 and NB5831",
+        "Assign 1x AH-64 squadron as quick reaction force for secondary crossing detection",
+        "Increase SHORAD coverage in Phase II from 3x to 4x batteries to account for increased MRBM threat",
+        "Pre-position Class V stocks for 72-hr intensive combat at River Lena positions (J4 action)"
+      ]
+    },
+    {
+      "coa_id": "COA-2",
+      "coa_name": "Mobile Defense",
+      "wargame_method": "BELT",
+      "arc_table": [
+        {
+          "phase": "Phase 0 - Shape (D-14 to D-1)",
+          "friendly_action": "Establish ISR coverage with emphasis on enemy assembly areas; position guard force (1x BDE) forward along EDL; main body (2x BDE) positioned 30km behind EDL in covered assembly areas for mobile counterattack",
+          "enemy_reaction": "Country X advances 3rd CAA toward EDL; fails to detect main body positioning due to OPSEC measures; focuses ISR and targeting on forward guard force",
+          "friendly_counteraction": "Guard force conducts deception operations to appear as main defense; J6 operates dummy C2 emissions from forward positions; J2 confirms enemy deception take through SIGINT analysis",
+          "notes": "Shaping success depends on OPSEC for main body positioning - if compromised, enemy will avoid engagement area"
+        },
+        {
+          "phase": "Phase I - Absorb (D-Day to D+3)",
+          "friendly_action": "Guard force conducts delay operations along 3 successive delay lines, attriting enemy lead elements 15-20% per line; main body remains concealed; fires mass on pre-planned engagement areas",
+          "enemy_reaction": "Enemy 3rd CAA pushes through guard force delays; enemy commits 2nd echelon to maintain tempo; advancing columns extend logistics tail 40km beyond start line",
+          "friendly_counteraction": "J2 tracks enemy culmination indicators (logistics consumption rate, vehicle breakdown rate, C2 response times); guard force withdraws through main body positions; engineer obstacles channel enemy into EA TIGER",
+          "notes": "Guard force accepts 30% attrition in delay - must maintain unit cohesion for passage of lines"
+        },
+        {
+          "phase": "Phase II - Strike (D+3 to D+7)",
+          "friendly_action": "Main body (2x BDE) executes mobile counterattack into enemy flank at EA TIGER; concentrated fires from 3x FA BDE plus MLRS; simultaneous SOF raids on enemy logistics hubs at NB7040 and NB7545",
+          "enemy_reaction": "Enemy 3rd CAA, overextended and depleted by delays, struggles to reorient to flank threat; commits final reserve to block counterattack; 1st TA attempts to reinforce but logistics tail interdicted by SOF",
+          "friendly_counteraction": "Exploit success by pushing through disorganized enemy formations; CAS concentrates on enemy reserve commitment; continue SOF interdiction of enemy reinforcement routes",
+          "notes": "Critical assumption: enemy culmination occurs before D+3. If enemy maintains combat power, counterattack may stall."
+        },
+        {
+          "phase": "Phase III - Exploit/Pursue (D+7 to D+15)",
+          "friendly_action": "Exploitation force pursues retreating enemy to restore EDL; establish blocking positions to prevent enemy reorganization; fires shift to interdiction of retreat routes",
+          "enemy_reaction": "Disorganized enemy withdrawal; rearguard actions by 1x MRB; stay-behind units attempt to interdict friendly LOCs",
+          "friendly_counteraction": "Lead element maintains contact; follow-on forces clear stay-behind elements; J5 coordinates ceasefire terms once EDL restored",
+          "notes": "Pursuit culminates at EDL - no crossing of international boundary without NAC authorization"
+        }
+      ],
+      "decision_points": [
+        {
+          "id": "DP-01",
+          "trigger": "Guard force attrition exceeds 50% before reaching 2nd delay line OR enemy bypasses guard force entirely",
+          "decision": "Abort delay plan and commit main body to hasty defense or accelerate counterattack timing",
+          "branch": "If guard force collapses early: main body conducts hasty defense at EA TIGER rather than mobile counterattack; accept defensive posture until reinforcement",
+          "sequel": "Request theater reserve to reconstitute mobile counterattack capability",
+          "owner": "CDR JFC NORTH",
+          "associated_ccir": "FFIR-01"
+        },
+        {
+          "id": "DP-02",
+          "trigger": "J2 assesses enemy has NOT culminated by D+3 (logistics flow sustained, <15% attrition in lead echelon)",
+          "decision": "Delay counterattack by 48 hours and continue guard force delay, or execute counterattack on schedule against non-culminated enemy",
+          "branch": "Branch Plan GOLF: Extend delay phase; commit additional fires to accelerate enemy attrition; SOF prioritize logistics interdiction over direct action",
+          "sequel": "If enemy still not culminated by D+5, transition to deliberate defense (fallback to COA-1 posture)",
+          "owner": "CDR JFC NORTH",
+          "associated_ccir": "PIR-02"
+        },
+        {
+          "id": "DP-03",
+          "trigger": "Enemy detects main body assembly areas before counterattack launch",
+          "decision": "Execute immediate spoiling attack to disrupt enemy preparations, or reposition main body to alternate assembly area (48-hr delay)",
+          "branch": "Branch Plan HOTEL: Immediate attack from current positions accepting reduced coordination; or move to AA-BRAVO and attack from alternate axis",
+          "sequel": "If surprise lost, accept increased casualties in counterattack; request additional CAS and SEAD to compensate",
+          "owner": "CDR JFC NORTH",
+          "associated_ccir": "EEFI-02"
+        },
+        {
+          "id": "DP-04",
+          "trigger": "Counterattack at EA TIGER fails to break through enemy defense (main body stalled >24 hours with <10% penetration)",
+          "decision": "Reinforce counterattack with theater reserve or transition to deliberate defense and prepare new attack",
+          "branch": "Branch Plan INDIA: Request theater reserve BDE; shift main effort to alternate penetration point 15km south; conduct deliberate breach with engineer support",
+          "sequel": "If second attempt fails, transition to defense-in-depth along current line of contact; operational pause for 72 hours",
+          "owner": "CDR JFC NORTH",
+          "associated_ccir": "FFIR-03"
+        }
+      ],
+      "strengths": [
+        "Preserves combat power in initial phase - avoids static attrition at River Lena",
+        "Exploits enemy overextension through operational maneuver rather than positional defense",
+        "Deception plan draws enemy ISR/targeting to guard force, protecting main body",
+        "Higher potential for decisive result - can destroy enemy combat power rather than just repel crossing"
+      ],
+      "weaknesses": [
+        "Extremely high risk - cedes terrain initially, which may be politically unacceptable to NAC",
+        "Guard force accepts very high attrition (30-50%) in delay role - morale and cohesion risk",
+        "Counterattack timing depends on accurate enemy culmination assessment - intelligence failure cascades to operational failure",
+        "If enemy does not culminate as expected, main body is committed to a counterattack against a superior force",
+        "OPSEC for main body is a single point of failure - if detected, entire COA collapses",
+        "Ceding ground to enemy risks civilian population centers behind the EDL"
+      ],
+      "updated_risk": {
+        "id": "R-COA2-WG",
+        "description": "COA-2 overall risk: Enemy does not culminate as assumed, resulting in a failed counterattack against a numerically superior force while having already ceded the EDL defensive terrain",
+        "probability": "POSSIBLE",
+        "severity": "EXTREME",
+        "narrative": "Wargaming revealed that COA-2's success depends entirely on accurate enemy culmination prediction. If the enemy sustains logistics better than estimated or commits both 3rd CAA and 1st TA simultaneously, the mobile counterattack encounters a non-culminated force with combat superiority. Recovery from a failed counterattack while having ceded prepared positions is extremely difficult.",
+        "mitigation": "Maintain fallback positions at River Lena as contingency (requires engineering effort that may reveal defensive plan); establish clear culmination indicators with J2 confidence thresholds before committing; maintain DP-02 as hard go/no-go gate",
+        "owner": "J3/J5"
+      },
+      "modifications": [
+        "Establish clear J2 culmination criteria: enemy must show >=2 of 5 indicators (logistics convoy disruption >40%, vehicle breakdown rate >15%, C2 response time >2x baseline, lead echelon attrition >20%, reserve uncommitted)",
+        "Pre-position fallback defensive positions at River Lena as contingency (accept OPSEC risk)",
+        "Increase SOF teams from 2 to 4 for logistics interdiction to accelerate enemy culmination",
+        "Add dedicated IO deception cell to manage guard force deception narrative"
+      ]
+    },
+    {
+      "coa_id": "COA-3",
+      "coa_name": "Forward Defense with Spoiling Attack",
+      "wargame_method": "BELT",
+      "arc_table": [
+        {
+          "phase": "Phase 0 - Shape (D-14 to D-1)",
+          "friendly_action": "All 3x BDEs occupy prepared positions along EDL with interlocking fields of fire; engineer effort concentrates on obstacle belts and survivability positions; pre-planned fires registered on all likely crossing points and avenues of approach",
+          "enemy_reaction": "Country X 3rd CAA recognizes strong forward defense through ISR; adjusts attack plan to concentrate force at perceived weak point (junction between 12th and 15th BDEs at NB5830); masses artillery for preparatory fires",
+          "friendly_counteraction": "J2 detects enemy concentration via JSTARS and UAV; JFC NORTH shifts 1x MBN from reserve to reinforce junction; pre-planned spoiling attack preparations accelerated; CYBER_EW targets enemy artillery C2 networks",
+          "notes": "Forward defense is detected by enemy - no deception advantage. But prepared positions provide protection advantage."
+        },
+        {
+          "phase": "Phase I - Defend Forward (D-Day to D+3)",
+          "friendly_action": "All 3 BDEs defend in sector along EDL; concentrated fires on crossing points destroy 30-40% of first echelon during approach; spoiling attack force (1x mech BN task force) launches limited attack into enemy assembly area at NB6540 on D+1",
+          "enemy_reaction": "3rd CAA absorbs spoiling attack casualties but maintains momentum; shifts main attack to northern sector to avoid spoiling attack area; commits 2nd echelon by D+2 to replace losses",
+          "friendly_counteraction": "Spoiling attack TF withdraws to friendly lines on D+2; northern BDE (at NC8834) conducts fighting withdrawal to successive positions; fires shift north to support; request air interdiction of 2nd echelon approach routes",
+          "notes": "Spoiling attack disrupts enemy timetable by 36 hours but costs 1x MBN TF at 60% strength. Enemy main effort shifts north - validates contingency planning."
+        },
+        {
+          "phase": "Phase II - Attrite and Hold (D+3 to D+10)",
+          "friendly_action": "Defend along EDL with all available forces; reconstitute spoiling attack TF; mass fires on enemy penetrations; request theater reinforcement to replace losses",
+          "enemy_reaction": "Enemy achieves local penetration in northern sector (5km); commits 1st TA lead elements to exploit penetration; intensifies air/missile attacks on friendly rear areas",
+          "friendly_counteraction": "Seal penetration with reserve BN and prepared secondary positions; MLRS fires on enemy exploitation force; air interdiction of 1st TA approach routes delays full commitment by 72 hours",
+          "notes": "Penetration contained but not eliminated. Forward defense consuming forces faster than replaceable. DP-03 critical."
+        },
+        {
+          "phase": "Phase III - Counterattack (D+10 to D+18)",
+          "friendly_action": "Once theater reinforcement arrives (1x BDE, D+8), launch deliberate counterattack to eliminate northern penetration and restore EDL",
+          "enemy_reaction": "Weakened enemy formations defend in place; 1st TA attempts to reinforce but logistics exhausted",
+          "friendly_counteraction": "Systematic reduction of enemy penetration using combined arms; restoration of EDL by D+15; transition to security operations",
+          "notes": "Counterattack success depends on theater reinforcement timeline - external dependency"
+        }
+      ],
+      "decision_points": [
+        {
+          "id": "DP-01",
+          "trigger": "Spoiling attack TF attrition exceeds 40% before reaching Obj SPIKE (NB6540) OR enemy detects and counters spoiling attack with >1 BDE response",
+          "decision": "Abort spoiling attack and withdraw TF to EDL defensive positions",
+          "branch": "Cancel spoiling attack; accept that enemy timetable is not disrupted; reinforce main defense line with returning TF assets",
+          "sequel": "If spoiling attack aborted, enemy attacks on original timeline - adjust fire plan accordingly",
+          "owner": "CDR JFC NORTH",
+          "associated_ccir": "FFIR-01"
+        },
+        {
+          "id": "DP-02",
+          "trigger": "Any BDE sector breached with >regiment-size enemy force crossing EDL AND friendly BDE unable to restore with organic assets",
+          "decision": "Commit theater reserve or accept penetration and defend on secondary positions",
+          "branch": "Branch Plan JULIET: Commit reserve MBN to counterattack penetration; accept risk in other sectors; or withdraw affected BDE to Phase Line BRAVO (10km behind EDL) and defend in depth",
+          "sequel": "If penetration not sealed within 48 hours, execute delay to Phase Line CHARLIE and request emergency theater reinforcement",
+          "owner": "CDR JFC NORTH",
+          "associated_ccir": "PIR-01"
+        },
+        {
+          "id": "DP-03",
+          "trigger": "Overall JFC NORTH combat power drops below 65% OR 2+ BDEs below 50% combat effectiveness",
+          "decision": "Request emergency theater reinforcement and/or transition to economy of force defense on reduced frontage",
+          "branch": "Branch Plan KILO: Consolidate remaining forces on 2/3 of EDL frontage; accept risk on undefended sector; emplace maximum obstacles in gap; request theater reserve BDE deployment within 72 hours",
+          "sequel": "If theater reserve not available within 96 hours, execute fighting withdrawal to Phase Line DELTA (30km behind EDL) to trade space for time",
+          "owner": "CDR JFC NORTH / JFC HQ",
+          "associated_ccir": "FFIR-02"
+        },
+        {
+          "id": "DP-04",
+          "trigger": "Theater reinforcement (1x BDE) confirmed available AND enemy 3rd CAA assessed at <60% combat effectiveness",
+          "decision": "Launch deliberate counterattack to restore EDL or maintain defense and use reinforcement to reconstitute",
+          "branch": "Branch Plan LIMA: Counterattack with reinforcement BDE supported by reconstituted forces; or use reinforcement to relieve most attrited BDE and continue defense",
+          "sequel": "Post-counterattack, transition to Phase IV stability operations once EDL fully restored",
+          "owner": "CDR JFC NORTH",
+          "associated_ccir": "PIR-03"
+        }
+      ],
+      "strengths": [
+        "Defends all terrain from the start - politically acceptable to NAC allies",
+        "Prepared positions provide maximum protection and force multiplication",
+        "Spoiling attack disrupts enemy timetable and imposes early costs",
+        "Simpler C2 than mobile defense - all units in known positions with pre-planned fires",
+        "Does not depend on complex intelligence assessment (culmination prediction) for success"
+      ],
+      "weaknesses": [
+        "Static defense across full frontage spreads forces thin - no strong reserve",
+        "Spoiling attack consumes a battalion task force that cannot be easily replaced",
+        "If enemy achieves penetration, limited ability to counterattack without theater reinforcement",
+        "Attrition-based approach - friendly forces consumed at potentially unsustainable rate",
+        "Counterattack phase dependent on external theater reinforcement timeline (outside CDR control)",
+        "Enemy can choose point of main effort against thinly-spread defense"
+      ],
+      "updated_risk": {
+        "id": "R-COA3-WG",
+        "description": "COA-3 overall risk: Forward defense spreads forces too thin, allowing enemy to achieve decisive penetration before theater reinforcement arrives, resulting in gradual collapse of the defense",
+        "probability": "LIKELY",
+        "severity": "HIGH",
+        "narrative": "Wargaming showed that COA-3 creates a race between enemy penetration and friendly reinforcement. Defending the full EDL with 3x BDEs against a 3-army enemy force results in no meaningful reserve. The spoiling attack, while disruptive, further depletes available forces. If theater reinforcement is delayed beyond D+10, the defense becomes unsustainable. The COA lacks operational-level flexibility.",
+        "mitigation": "Negotiate pre-deployment of theater reserve BDE to reduce reinforcement timeline from D+8 to D+3; reduce spoiling attack scope from BN TF to company-level raids; designate one BDE sector as economy of force to create larger reserve",
+        "owner": "J3/J5"
+      },
+      "modifications": [
+        "Reduce spoiling attack from BN TF to 2x company-level raids to preserve combat power",
+        "Pre-coordinate theater reserve deployment to reduce timeline from D+8 to D+5",
+        "Designate northern sector as economy of force with reinforced screening force to create 1x MBN reserve",
+        "Add pre-planned withdrawal routes and rally points for each BDE in case of sector breach"
+      ]
+    }
+  ],
+  "updated_ccirs": [
+    {
+      "id": "PIR-05",
+      "text": "Is Country X preparing CBRN employment? Indicators: NBC unit movement to forward assembly areas, decontamination vehicle staging, increased secure comms from NBC command net",
+      "indicator": "Movement of 3rd CAA NBC regiment from garrison at NC9050 toward forward positions",
+      "collection_asset": "SIGINT / MASINT / HUMINT (allied intelligence services)",
+      "timeliness": "Continuous, report within 30 minutes of detection"
+    },
+    {
+      "id": "FFIR-04",
+      "text": "What is the current friendly ammunition expenditure rate vs. resupply rate for Class V across all BDEs? Wargaming indicates 72-hr intensive combat at River Lena will consume 200% of normal Class V allocation",
+      "indicator": "Daily Class V status reports from each BDE CSS BN",
+      "collection_asset": "J4 logistics reporting system / BDE S4 reports",
+      "timeliness": "Every 12 hours during Phase II, every 6 hours if expenditure exceeds 150% of planned rate"
+    }
+  ],
+  "collection_gaps": [
+    "No reliable MASINT capability to detect enemy CBRN preparations - gap identified during CBRN branch plan development",
+    "Limited HUMINT coverage behind enemy lines for logistics flow assessment - critical for COA-2 culmination prediction",
+    "Counter-battery radar coverage has 15km gap between Sector Alpha and Sector Bravo - enemy artillery could operate in dead zone",
+    "No persistent ISR coverage of enemy 1st Tank Army assembly areas during nighttime hours (D-3 to D-Day) - JSTARS coverage only 16hrs/day"
+  ]
+}
